@@ -41,6 +41,11 @@ class Cl:
     # Bit-masks for basis-vectors in each multi-vector blade
     #
     _blade_basis_masks: npt.NDArray[BasisBitmaskType]
+    #
+    # Multiplication tables
+    #
+    _mult_table: NDMultTableType
+    _mult_table_res_idx: NDResultIdxType
 
     def __init__(self, pos_sig: int|None=None, neg_sig: int=0, zero_sig: int=0, *,
                  sig: npt.ArrayLike|None=None) -> None:
@@ -67,6 +72,10 @@ class Cl:
         self._blade_basis_masks = blade_masks[argsort]
         # Update blade names, add object attributes
         self._add_blades()
+        #
+        # Create multiplication tables
+        #
+        self._build_mult_table()
 
     def _add_blades(self) -> None:
         """Assign blade-names as the object attributes"""
@@ -95,6 +104,54 @@ class Cl:
             if idx + 1 == 1 << self.dims:
                 setattr(self, 'I', blade_mvec)
 
+    def _build_mult_table(self) -> None:
+        """Create multiplication tables"""
+        #
+        # Select component-indices for each element in table
+        #
+        # Bit-masks of non-overlapping blades for each component combination
+        result_masks = self._blade_basis_masks[:, np.newaxis] ^ self._blade_basis_masks
+        # Convert bit-masks to component-indices
+        inv_sort = np.arange(self._blade_basis_masks.size)
+        inv_sort[self._blade_basis_masks] = inv_sort
+        self._mult_table_res_idx = inv_sort[result_masks]
+
+        #
+        # Table to apply basis-vector signatures during component multiplication
+        #
+        # Bit-masks of overlapping blades for each component combination
+        overlap_mask = self._blade_basis_masks[:, np.newaxis] & self._blade_basis_masks
+        # Convert to Boolean-mask where each basis-vector overlap
+        # shape: <left-component>, <right-component>, <basis>
+        overlap_mask = (overlap_mask[..., np.newaxis] & 1<<np.arange(self.dims)).astype(bool)
+        signature_table = np.where(overlap_mask, self.sig, 1).prod(axis=-1, dtype=SigType)
+
+        #
+        # Table to apply anti-commutativity of basis-vector swaps
+        #
+        # Count number of basis-swaps in left-component to match the right-component
+        # Bit-masks of basis-vectors preceding each component's bases:
+        # "1<<(basis_index - 1)" where basis is included, or "0" otherwise
+        pre_basis_mask = self._blade_basis_masks[:, np.newaxis] \
+                & 1<<np.arange(self.dims, dtype=self._blade_basis_masks.dtype)
+        pre_basis_mask = np.where(pre_basis_mask, pre_basis_mask - 1, 0)
+        # Bit-mask of basis-vectors from right-component preceding bases from left-component
+        # (each bit in this mask correspond to a swap operation)
+        # shape: <left-component>, <basis>, <right-component>
+        swap_mask = pre_basis_mask[..., np.newaxis] & self._blade_basis_masks
+        # Count total numbers of swaps, in order left-component to align to right one
+        swap_cnt_table = np.bitwise_count(swap_mask).sum(1, dtype=MultTableType)
+        # Select the sign based on swap parity
+        np.testing.assert_equal(swap_cnt_table & 1,
+                                np.logical_xor.reduce(np.bitwise_count(swap_mask) & 1, axis=1))
+        sign_table = np.where(swap_cnt_table & 1,
+                              MultTableType(-1),    # need odd number of swaps
+                              MultTableType(1))     # need even number of swaps
+        #
+        # Combine sign-swap and signature tables
+        #
+        self._mult_table = sign_table * signature_table
+
     @property
     def gaDims(self) -> int:    # pylint: disable=invalid-name #HACK: match `clifford` naming
         """Multi-vector dimensions, similar to `clifford.Layout.gaDims`"""
@@ -120,3 +177,10 @@ class Cl:
         if not isinstance(other, type(self)):
             return False
         return np.array_equal(self.sig, other.sig)
+
+    def do_mul(self, l_value: npt.NDArray, r_value: npt.NDArray) -> MVector:
+        """Multi-vector multiplication"""
+        product = l_value[:, np.newaxis] * self._mult_table * r_value
+        result = np.zeros_like(product, shape=l_value.shape)
+        np.add.at(result, self._mult_table_res_idx, product)
+        return MVector(self, result)

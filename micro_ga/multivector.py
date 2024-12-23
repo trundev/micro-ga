@@ -134,3 +134,17 @@ class MVector:
     def __rsub__(self, other: OtherArg) -> 'MVector':
         """Right-side subtraction"""
         return self.__neg__().__add__(other)
+
+    def __mul__(self, other: OtherArg) -> 'MVector':
+        """Left-side multiplication"""
+        value = self._get_other_value(other)
+        if value is NotImplemented:
+            return NotImplemented
+        return self.layout.do_mul(self.value, value)
+
+    def __rmul__(self, other: OtherArg) -> 'MVector':
+        """Right-side multiplication"""
+        value = self._get_other_value(other)
+        if value is NotImplemented:
+            return NotImplemented
+        return self.layout.do_mul(value, self.value)

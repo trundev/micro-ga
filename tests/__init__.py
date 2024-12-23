@@ -43,7 +43,7 @@ def dtype(request):
 @pytest.fixture(params=[
         operator.add,
         operator.sub,
-        #operator.mul,
+        operator.mul,
         #operator.xor,  # outer product
         #operator.or_,  # inner product
     ])
