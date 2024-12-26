@@ -42,11 +42,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+      - name: Install module
         run: |
           python -m pip install --upgrade pip
           pip install .[dev]
-      - run: pytest --cov=. --cov-branch
+      - run: pytest --cov=micro_ga --cov-branch
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
@@ -54,8 +54,35 @@ jobs:
           include-hidden-files: true
           path: './.coverage'
 
+  ext_lib:
+    name: Test via external libraries
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # We need the latest clifford module version, instead of
+          # v1.4.0 from pypi.org (it only works on python upto 3.11)
+          python -m pip install git+https://github.com/pygae/clifford
+          pip install .[dev]
+      - run: pytest --cov=micro_ga --cov-branch tests/xtest_*
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'coverage-${{ runner.os }}-${{ github.job }}'
+          include-hidden-files: true
+          path: './.coverage'
+
   coverage:
-    needs: build
+    needs: [build, ext_lib]
     runs-on: ubuntu-latest
     defaults:
       run:
