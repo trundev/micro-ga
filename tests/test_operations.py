@@ -1,8 +1,9 @@
 """Test arithmetic operations"""
+import inspect
 import numpy as np
 import pytest
 import micro_ga
-from . import pos_sig, layout, operation, dtype # pylint: disable=W0611
+from . import rng, pos_sig, layout, operation, dtype, mvector_gen   # pylint: disable=W0611
 # pylint: disable=W0621
 
 
@@ -16,17 +17,21 @@ def zero_sig():
     """Skip tests with basis-vectors of zero signature"""
     return 0
 
-def test_operation(layout, operation):
+def test_operation(layout, operation, mvector_gen):
     """Compare results from arithmetic operations with scalar vs. python integer"""
-    # Pick the middle blade
-    blade = tuple(layout.blades.values())[layout.gaDims//2]
-    assert operation(layout.scalar, blade) == operation(1, blade)
-    assert operation(blade, layout.scalar) == operation(blade, 1)
+    # Test built-in operators using a multi-vector as the second argument
+    isbuiltin = inspect.isbuiltin(operation)
+    # Iterate over some picked values
+    for mv_val in mvector_gen(layout):
+        if isbuiltin:
+            assert operation(layout.scalar, mv_val) == operation(1, mv_val)
+        assert operation(mv_val, layout.scalar) == operation(mv_val, 1)
     # Unsupported operand type (right and left side)
     with pytest.raises(TypeError):
-        _ = operation(blade, None)
-    with pytest.raises(TypeError):
-        _ = operation(None, blade)
+        _ = operation(layout.scalar, None)
+    if isbuiltin:
+        with pytest.raises(TypeError):
+            _ = operation(None, layout.scalar)
 
 def test_astype(dtype):
     """Check conversion of internal `numpy` array `dtype`"""
