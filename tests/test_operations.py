@@ -48,7 +48,7 @@ def test_blade_dtype(dtype):
 def test_operation_dtype(operation, dtype):
     """Check the internal `numpy` array `dtype` of operation result"""
     layout = micro_ga.Cl(3, dtype=dtype)
-    mv = operation(1, layout.scalar)
+    mv = operation(layout.mvector(12345).astype(dtype), layout.scalar)
     exp_dt = np.result_type(layout.scalar.value.dtype, dtype)
     assert mv.value.dtype is exp_dt, 'Result dtype must come from numpy conversion rules'
     # Check type of individual values

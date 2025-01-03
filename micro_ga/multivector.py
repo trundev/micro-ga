@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 # Avoid circular imports, while type checking works
 if TYPE_CHECKING:
-    from .layout import Cl  # pragma: no cover # pylint: disable=C0401
+    from .layout import Cl  # pragma: no cover # pylint: disable=wrong-spelling-in-comment
 else:
     Cl = ForwardRef('Cl')
 
@@ -17,10 +17,17 @@ class MVector:
     layout: Cl
     value: npt.NDArray
 
-    def __init__(self, layout: Cl, value: npt.NDArray) -> None:
-        assert layout.gaDims == value.size, 'The value and layout signature must match'
+    def __init__(self, layout: Cl, value: npt.ArrayLike|numbers.Number) -> None:
+        # Handle various input type options
+        if isinstance(value, numbers.Number):
+            # Ensure blade-type will be up-scaled for integers
+            val = layout.scalar._value_astype(type(value)) * value
+        else:
+            val = np.array(value)
+            if layout.gaDims != val.size:
+                raise ValueError('Coefficients do not match layout signature')
         self.layout = layout
-        self.value = value.copy()
+        self.value = val
 
     @property
     def subtype(self) -> type:
@@ -31,6 +38,18 @@ class MVector:
             # Type of underlying object
             subtype = type(self.value.item(0))
         return subtype
+
+    def _value_astype(self, dtype: type) -> npt.NDArray:
+        """Convert `value` to a different data type, original array if type matches"""
+        value = np.asarray(self.value, dtype=dtype)
+        if value.dtype.type == np.object_ and dtype != object:
+            # Convert individual values to requested non `numpy` type
+            value[...] = np.vectorize(dtype, otypes=[object])(value)
+        return value
+
+    def astype(self, dtype: type) -> 'MVector':
+        """Convert to a multi-vector of different data type"""
+        return MVector(self.layout, self._value_astype(dtype))
 
     def _to_string(self, str_fn: Callable, *, tol: float=0, mult_sym='*') -> str:
         """String representation, strips near-zero blades"""
@@ -77,7 +96,11 @@ class MVector:
         """Convert values of an operation argument to match ours"""
         # Check if it is scalar
         if isinstance(other, numbers.Number):
-            return self.layout.scalar.value * other
+            # Ensure result `dtype` matches our and `other` types:
+            # - type `object` must persist (allows unbounded integers)
+            # - when `other` is integer, scalar-blade type will be up-scaled
+            dtype = np.promote_types(self.value.dtype, type(other))
+            return self.layout.scalar._value_astype(dtype.type) * other # pylint: disable=protected-access
         if not isinstance(other, MVector):
             return NotImplemented
         if self.layout != other.layout:

@@ -1,4 +1,5 @@
 """Geometric algebra multi-vector basic implementation"""
+import numbers
 import numpy as np
 import numpy.typing as npt
 from .multivector import MVector
@@ -31,8 +32,6 @@ class Cl:
     sig: NDSigType
     # Basis-vector dimensions, similar to `clifford.Layout.dims`
     dims: int
-    # Multi-vector dimensions, similar to `clifford.Layout.gaDims`
-    gaDims: int
     # Blade-name to multi-vector map
     blades: dict[str, MVector]
     # Individual blades, also include 'e1', 'e2', etc.
@@ -49,7 +48,6 @@ class Cl:
         self.sig = np.array([0] * zero_sig + [1] * pos_sig + [-1] * neg_sig,
                             dtype=SigType)
         self.dims = self.sig.size
-        self.gaDims = 1<<self.dims      # pylint: disable=C0103 #HACK: match `clifford` naming
         #
         # Select bit-masks for all available blades
         #
@@ -72,14 +70,14 @@ class Cl:
                 self._blade_basis_masks[:, np.newaxis] & 1<<np.arange(self.dims),
                 np.arange(self.dims) + 1, '').astype(object).sum(-1)
         self.blades = {}
-        blade_val = np.empty(shape=self.gaDims, dtype=dtype)
+        blade_val = np.empty(blade_names.size, dtype=dtype)
         # Create 0 and 1 objects of type `dtype`
         zero, one = (0, 1) if dtype in (None, object) else (dtype(0), dtype(1))
         for idx, n in enumerate(blade_names):
             # Create multi-vector for this blade
             blade_val[...] = zero
             blade_val[idx] = one
-            blade_mvec = MVector(self, blade_val)
+            blade_mvec = self.mvector(blade_val)
             # Add to `blades` map, the scalar is ''
             name = 'e'+n if n else ''
             self.blades[name] = blade_mvec
@@ -88,8 +86,22 @@ class Cl:
                 name = 'scalar'
             setattr(self, name, blade_mvec)
             # Extra pseudo-scalar property from the last blade
-            if idx == self.gaDims - 1:
+            if idx + 1 == 1 << self.dims:
                 setattr(self, 'I', blade_mvec)
+
+    @property
+    def gaDims(self) -> int:    # pylint: disable=invalid-name #HACK: match `clifford` naming
+        """Multi-vector dimensions, similar to `clifford.Layout.gaDims`"""
+        return 1 << self.dims
+
+    @property
+    def gradeList(self) -> npt.NDArray[np.int_]:    # pylint: disable=invalid-name #HACK: match `clifford` naming
+        """Map blade-index to its grade, similar to `clifford.Layout.gradeList`"""
+        return np.bitwise_count(self._blade_basis_masks)
+
+    def mvector(self, value: npt.ArrayLike|numbers.Number) -> MVector:
+        """Create a multi-vector from this layout"""
+        return MVector(self, value)
 
     def __repr__(self) -> str:
         """String representation"""
