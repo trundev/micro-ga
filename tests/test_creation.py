@@ -20,7 +20,13 @@ def test_dimensions(pos_sig, neg_sig, zero_sig):
     for g in range(layout.dims + 1):
         exp_grades.extend([g]*math.comb(layout.dims, g))
     np.testing.assert_equal(layout.gradeList, exp_grades, 'Unexpected gradeList content')
-    # Construct from wrong number of coefficients
+
+    # Construct layer from incorrect parameters
+    with pytest.raises(ValueError):
+        micro_ga.Cl()
+    with pytest.raises(ValueError):
+        micro_ga.Cl(pos_sig, neg_sig, zero_sig, sig=[1]*pos_sig)
+    # Construct multi-vector from wrong number of coefficients
     with pytest.raises(ValueError):
         layout.mvector([1, 2, 3])
 
@@ -53,22 +59,27 @@ def test_comparison(pos_sig, neg_sig):
     layout2 = micro_ga.Cl(neg_sig, pos_sig+1)
     assert layout != layout2
     assert layout.scalar != layout2.scalar
+    # Layout created from a signature
+    assert layout == micro_ga.Cl(sig=[1]*pos_sig + [-1]*neg_sig)
 
 def test_repr(dtype):
     """Test `repr()` and `str()` results"""
-    layout = micro_ga.Cl(3, dtype=dtype)
-    if dtype is object:
-        exp_dtype = int         # Default `micro_ga` type
-    else:
-        exp_dtype = dtype
+    layout = micro_ga.Cl(3)
     # Algebra representation
-    assert str(layout) == f'Cl(sig={[1]*layout.dims}, dtype={exp_dtype.__name__})'
-    # Basic multi-vector representations
-    py_type = exp_dtype
+    assert str(layout) == f'Cl(sig={[1]*layout.dims})'
+    if dtype is object:
+        exp_type = int          # Default `micro_ga` type
+    else:
+        exp_type = dtype
+    py_type = exp_type
     if issubclass(py_type, np.number):
         # String representation works on python type, but not on `numpy` type
         py_type: Any = type(np.zeros(1, dtype=dtype).item(0))
-    assert str(layout.scalar) == f'{py_type(1)}'
-    assert str(layout.scalar - layout.scalar) == '0'
-    assert str(-layout.scalar + layout.I) == f'{py_type(-1)} + {py_type(1)}*e123'
-    assert repr(-layout.scalar + layout.I) == f'MVector({py_type(-1)!r} + {py_type(1)!r}*e123)'
+    # Basic multi-vector representations
+    scalar = layout.scalar.astype(dtype)
+    pscalar = layout.I.astype(dtype)
+    assert str(scalar) == f'{exp_type(1)}'
+    assert str(scalar - scalar) == '0'
+    assert str(-scalar + pscalar) == f'{py_type(-1)} + {py_type(1)}*e123'
+    assert repr(-scalar + pscalar) == \
+           f'MVector({py_type(-1)!r} + {py_type(1)!r}*e123, subtype={exp_type.__name__})'

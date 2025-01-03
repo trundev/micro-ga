@@ -79,7 +79,7 @@ class MVector:
         return self._to_string(str)
 
     def __repr__(self) -> str:
-        return f'{type(self).__name__}({self._to_string(repr)})'
+        return f'{type(self).__name__}({self._to_string(repr)}, subtype={self.subtype.__name__})'
 
     def __round__(self, ndigits: int=0) -> 'MVector':
         """Implement built-in round(), esp. for `dtype=object`"""

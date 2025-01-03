@@ -28,29 +28,29 @@ def test_operation(layout, operation):
     with pytest.raises(TypeError):
         _ = operation(None, blade)
 
-def test_blade_dtype(dtype):
-    """Check the internal `numpy` array `dtype` of all blades"""
-    layout = micro_ga.Cl(3, dtype=dtype)
-    # Note: `dtype('O') == object`
-    assert layout.scalar.value.dtype == dtype, 'Internal numpy array must use requested dtype'
+def test_astype(dtype):
+    """Check conversion of internal `numpy` array `dtype`"""
+    layout = micro_ga.Cl(3)
+    # Check type of individual blades before and after type conversion
+    exp_type = int if dtype is object else dtype
     for blade in layout.blades.values():
-        assert blade.value.dtype == dtype
+        assert isinstance(blade.value[0], np.integer), 'Internal blade numpy array must use int'
+        blade = blade.astype(dtype)
+        # Note: `dtype('O') == object`
+        assert blade.value.dtype == dtype, 'Internal numpy array must use requested dtype'
+        assert blade.subtype == exp_type, 'Reported subtype must match'
     # Check type of individual values from the scalar-blade
-    exp_t = int if dtype is object else dtype
-    for v in layout.scalar.value:
+    scalar = layout.scalar.astype(dtype)
+    for v in scalar.value:
         # pylint: disable=C0123     # Here we expect exactly the same type
-        assert type(v) is exp_t, 'Individual values must be of requested type'
-
-    # Check if both string representations work
-    _ = repr(layout.scalar)
-    _ = str(layout.scalar)
+        assert type(v) is exp_type, 'Individual values must be of requested type'
 
 def test_operation_dtype(operation, dtype):
     """Check the internal `numpy` array `dtype` of operation result"""
-    layout = micro_ga.Cl(3, dtype=dtype)
+    layout = micro_ga.Cl(3)
     mv = operation(layout.mvector(12345).astype(dtype), layout.scalar)
-    exp_dt = np.result_type(layout.scalar.value.dtype, dtype)
-    assert mv.value.dtype is exp_dt, 'Result dtype must come from numpy conversion rules'
+    exp_dt = np.result_type(dtype)
+    assert mv.value.dtype is exp_dt, 'Result dtype must match requested type'
     # Check type of individual values
     exp_t = int if dtype is object else dtype
     for v in mv.value:
@@ -59,24 +59,26 @@ def test_operation_dtype(operation, dtype):
 
 def test_unbounded_int():
     """Test python unbounded `int` operation"""
-    # With `object`, `numpy` falls-back to original python unbounded operation
-    layout = micro_ga.Cl(2, dtype=object)
-    mv = layout.scalar + (1<<100)
+    layout = micro_ga.Cl(2)
+    # When converted to `object`, `numpy` falls-back to original python unbounded operation
+    scalar = layout.scalar.astype(object)
+    mv = scalar + (1<<100)
     assert (mv.value[0] - (1<<100)) == 1
 
-    # With `int`, `numpy` uses `int64`, which is 64-bit only
-    layout = micro_ga.Cl(2, dtype=int)
+    # Default type promotes to `numpy.int64` (64-bit only)
+    layout = micro_ga.Cl(2)
     with pytest.raises(OverflowError):
         mv = layout.scalar + (1<<100)
+    mv = layout.scalar + (1<<40)
 
 def test_round(dtype):
     """Test `round` operation"""
-    layout = micro_ga.Cl(2, dtype=dtype)
+    layout = micro_ga.Cl(2)
     if dtype is object:
-        exp_dtype = int         # Default `micro_ga` type
+        exp_type = int          # Default `micro_ga` type
     else:
-        exp_dtype = dtype
+        exp_type = dtype
     # Pick a convenient number, which after rounding has finite binary representation
-    val = exp_dtype(1.2456) + layout.I
+    val = exp_type(1.2456) + layout.I
     val = round(val, 2)
-    assert val == exp_dtype(1.25) + layout.I
+    assert val == exp_type(1.25) + layout.I
