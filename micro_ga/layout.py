@@ -166,6 +166,19 @@ class Cl:
         """Create a multi-vector from this layout"""
         return MVector(self, value)
 
+    def from_ndarray(self, value: npt.ArrayLike, *, axis=-1) -> npt.NDArray[np.object_]:
+        """Helper to create array of multi-vectors from array of coefficients"""
+        return np.apply_along_axis(lambda v: np.asarray(self.mvector(v)), axis, value)
+
+    @staticmethod
+    def to_ndarray(mvector_arr: npt.NDArray[np.object_]) -> npt.NDArray[np.object_]:
+        """Helper to create array of coefficients from array of multi-vectors"""
+        # Extract multi-vector coefficients (HACK: use first one to select `dtype`)
+        value0 = mvector_arr.item(0).value
+        # Note: `vectorize()` on scalars do not need `otype` dimensions
+        otypes = (value0.dtype, value0.shape) if mvector_arr.shape else value0.dtype
+        return np.vectorize(lambda mv: mv.value, otypes=[otypes])(mvector_arr)
+
     def __repr__(self) -> str:
         """String representation"""
         return f'{type(self).__name__}(sig={self.sig.tolist()})'
