@@ -1,4 +1,5 @@
 """Test arithmetic operations"""
+import operator
 import inspect
 import numpy as np
 import pytest
@@ -87,3 +88,28 @@ def test_round(dtype):
     val = exp_type(1.2456) + layout.I
     val = round(val, 2)
     assert val == exp_type(1.25) + layout.I
+
+@pytest.mark.parametrize('operation', [operator.add, operator.mul])
+def test_associativity(layout, operation, mvector_gen):
+    """Test operation associativity: (a * b) * c == a * (b * c)"""
+    for mv_val_1 in mvector_gen(layout):
+        for mv_val_2 in mvector_gen(layout):
+            mv_val_12 = operation(mv_val_1, mv_val_2)
+            for mv_val_3 in mvector_gen(layout):
+                mv_val_23 = operation(mv_val_2, mv_val_3)
+                assert operation(mv_val_12, mv_val_3) == operation(mv_val_1, mv_val_23)
+
+@pytest.mark.parametrize('operation', [operator.mul])
+def test_distributivity(layout, operation, mvector_gen):
+    """Test operation distributivity: a * (b + c) == a * b + a * c"""
+    for mv_val_1 in mvector_gen(layout):
+        for mv_val_2 in mvector_gen(layout):
+            for mv_val_3 in mvector_gen(layout):
+                # Test distributivity from the left
+                mv_res_1 = operation(mv_val_1, mv_val_2 + mv_val_3)
+                mv_res_2 = operation(mv_val_1, mv_val_2) + operation(mv_val_1, mv_val_3)
+                assert mv_res_1 == mv_res_2, 'Distributivity from the left failed'
+                # Test distributivity from the right
+                mv_res_1 = operation(mv_val_1 + mv_val_2, mv_val_3)
+                mv_res_2 = operation(mv_val_1, mv_val_3) + operation(mv_val_2, mv_val_3)
+                assert mv_res_1 == mv_res_2, 'Distributivity from the right failed'
