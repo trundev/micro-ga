@@ -66,6 +66,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Checkout ganja.js
+        uses: actions/checkout@v4
+        with:
+          repository: enkimute/ganja.js
+          path: ganja.js
+      - uses: actions/setup-node@v4
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
