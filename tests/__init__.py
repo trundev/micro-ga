@@ -71,14 +71,12 @@ class MVType(enum.Enum):
 
 def rng_mvector(rng, layout: micro_ga.Cl, blade_mask: npt.NDArray[np.bool] | bool):
     """Multi-vector of random coefficients in given blades only"""
-    # Take all blades as `ndarray`
-    blade_vals = np.fromiter((blade for blade in layout.blades.values()),
-                             dtype=micro_ga.MVector)
-    blade_vals = blade_vals[blade_mask]
+    blade_vals = np.zeros_like(layout.scalar.value, dtype=int)
     # Use prime numbers as multi-vector coefficients
     prime_nums = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
                   31, 37, 41, 43, 47, 53, 59, 61, 67, 71]
-    return (blade_vals * rng.choice(prime_nums, blade_vals.size)).sum()
+    blade_vals[blade_mask] = rng.choice(prime_nums, blade_vals[blade_mask].size)
+    return micro_ga.MVector(layout, blade_vals)
 
 @pytest.fixture(params=list(MVType), ids=list(t.name for t in MVType))
 def mvector_gen(request, rng):
@@ -99,6 +97,7 @@ def mvector_gen(request, rng):
                     res = layout.scalar
                     for _ in range(num):
                         res = res * rng_mvector(rng, layout, blade_mask)
+                    assert res.value.any(), 'Zero versor multi-vector'
                     yield res
             case MVType.GEN:
                 # Single generic multi-vector of random coefficients

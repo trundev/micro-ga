@@ -193,7 +193,7 @@ class Cl:
 
     def do_mul(self, l_value: npt.NDArray, r_value: npt.NDArray) -> MVector:
         """Multi-vector multiplication"""
-        product = l_value[:, np.newaxis] * self._mult_table * r_value
-        result = np.zeros_like(product, shape=l_value.shape)
-        np.add.at(result, self._mult_table_res_idx, product)
-        return MVector(self, result)
+        # Row based order: `_mult_table` is rolled along first axis, result is summed along second
+        result = np.expand_dims(l_value, axis=-1) * self._mult_table
+        result = np.take_along_axis(result, self._mult_table_res_idx, axis=-2) * r_value
+        return MVector(self, result.sum(-1, dtype=result.dtype))
