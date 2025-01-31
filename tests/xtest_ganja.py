@@ -6,6 +6,7 @@ import subprocess
 import json
 import pytest
 import numpy as np
+import numpy.typing as npt
 import micro_ga
 from . import rng, neg_sig, zero_sig, operation, \
         mvector_gen, mvector_2_gen  # pylint: disable=W0611
@@ -32,6 +33,27 @@ def run_ganja(js_script: str) -> list:
         raise AssertionError(f'No "{RESULT_TOKEN}" found in JavaScript output')
     return json.loads(data[-1])
 
+def parse_blades(layout: micro_ga.Cl, basis: npt.NDArray[np.str_]
+                 ) -> tuple[npt.NDArray[np.int_], npt.NDArray[np.int_]]:
+    """Convert Algebra.describe() blade structures to more convenient format"""
+    basis = np.strings.strip(basis)
+    # Identify negative, zero bases and scalar
+    sign_table = np.where(basis == '0', 0,
+                          np.where(np.strings.startswith(basis, '-'), -1, 1))
+    basis = np.strings.lstrip(basis, '-')
+    basis[basis == '1'] = ''    # In our list scalar is empty string
+    # Convert base-names to our indices
+    if (np.strings.find(basis, 'e0') >= 0).any():
+        # Translate zero-based blade indices to one-based
+        mask = np.strings.startswith(basis, 'e')
+        basis[mask] = np.strings.translate(basis[mask], table=basis.item(0)
+                                           .maketrans("012345678", "123456789"))
+    # Convert basis-strings to indices in our blade-list
+    found_mask = basis[..., np.newaxis] == np.asarray(tuple(layout.blades.keys()))
+    blade_idx = np.argmax(found_mask, axis=-1)
+    blade_idx[~found_mask.any(-1)] = -1 # Invalidate not-found indices, like blade is '0'
+    return blade_idx, sign_table
+
 def test_blades(pos_sig, neg_sig, zero_sig):
     """Check if our layout has the same blades in the same order"""
     layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig)
@@ -40,14 +62,24 @@ def test_blades(pos_sig, neg_sig, zero_sig):
         console.log('{RESULT_TOKEN}' + JSON.stringify(layout.describe().basis));
         """)
     # Convert blade-naming to our style
-    def map_basis(n):
-        if n == '1':    # Scalar
-            return ''
-        if 'e0' in ganja_basis: # Degenerate metric starts from '0'
-            n = n[0] + ''.join(map(lambda v: chr(ord(v)+1), n[1:]))
-        return n
-    ganja_basis = list(map(map_basis, ganja_basis))
-    assert list(layout.blades.keys()) == ganja_basis, 'Blades are different'
+    ganja_res_idx, ganja_sign_table = parse_blades(layout, np.array(ganja_basis))
+    np.testing.assert_equal(ganja_sign_table, 1, 'Unexpected minus sign / zero in a base name')
+    np.testing.assert_equal(ganja_res_idx, np.arange(layout.gaDims), 'Blade order is different')
+
+def test_mul_table(pos_sig, neg_sig, zero_sig):
+    """Check if our layout use the same multiplication table"""
+    layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig)
+    mul_table = run_ganja(GANJA_JS_HDR + f"""
+        var layout = Algebra({pos_sig}, {neg_sig}, {zero_sig});
+        console.log('{RESULT_TOKEN}' + JSON.stringify(layout.describe().mulTable));
+        """)
+    # Convert blade-naming to our style
+    ganja_res_idx, ganja_sign_table = parse_blades(layout, np.array(mul_table))
+    our_sign_table = layout._mult_table     # pylint: disable=protected-access
+    our_res_idx = np.where(our_sign_table != 0, layout._mult_table_res_idx, -1) # pylint: disable=protected-access
+    np.testing.assert_equal(our_res_idx, ganja_res_idx, 'ganja Algebra.mulTable mismatch')
+    np.testing.assert_equal(our_sign_table, ganja_sign_table,
+                            'ganja Algebra.mulTable signature mismatch')
 
 def crop_mvector(mv_val: micro_ga.MVector) -> micro_ga.MVector:
     """Crop individual multi-vector coefficients, so it can be handled by `ganja.js`"""

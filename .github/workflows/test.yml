@@ -77,7 +77,8 @@ jobs:
           python -m pip install --upgrade pip
           # We need the latest clifford module version, instead of
           # v1.4.0 from pypi.org (it only works on python upto 3.11)
-          python -m pip install git+https://github.com/pygae/clifford
+          python -m pip install git+https://github.com/pygae/clifford juliacall
+          julia -e 'using Pkg; Pkg.add("Grassmann")'
           pip install .[dev]
       - run: pytest --cov=micro_ga --cov-branch tests/xtest_*
       - name: Upload coverage artifact
