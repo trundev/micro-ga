@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 import numpy.typing as npt
 import micro_ga
-import micro_ga.matrix
+import micro_ga.matrix_ganja
 from . import rng, neg_sig, zero_sig, operation, \
         mvector_gen, mvector_2_gen  # pylint: disable=W0611
 # pylint: disable=W0621
@@ -117,11 +117,9 @@ def test_operations(operation, pos_sig, neg_sig, zero_sig, mvector_2_gen):
         our_res = operation(l_val, r_val)
         np.testing.assert_equal(our_res, ref_res)
 
-@pytest.mark.parametrize('zero_sig', [0, pytest.param(1,
-        marks=pytest.mark.xfail(reason="Degenerate metric produce different matrix"))])
 def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
     """Check multi-vector matrix-form conversion"""
-    layout = micro_ga.matrix.Cl(pos_sig, neg_sig, zero_sig, first_index=0 if zero_sig else 1)
+    layout = micro_ga.matrix_ganja.Cl(pos_sig, neg_sig, zero_sig, first_index=0 if zero_sig else 1)
     matrix = run_ganja(GANJA_JS_HDR + f"""
         var layout = Algebra({pos_sig}, {neg_sig}, {zero_sig});
         console.log('{RESULT_TOKEN}' + JSON.stringify(layout.describe().matrix));
