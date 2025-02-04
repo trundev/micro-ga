@@ -77,10 +77,15 @@ jobs:
           python -m pip install --upgrade pip
           # We need the latest clifford module version, instead of
           # v1.4.0 from pypi.org (it only works on python upto 3.11)
-          python -m pip install git+https://github.com/pygae/clifford juliacall
+          python -m pip install git+https://github.com/pygae/clifford juliacall pytest-md-report
           julia -e 'using Pkg; Pkg.add("Grassmann")'
-          pip install .[dev]
-      - run: pytest --cov=micro_ga --cov-branch tests/xtest_*
+          python -m pip install .[dev]
+      - run: pytest --md-report-output=$GITHUB_STEP_SUMMARY --cov=micro_ga --cov-branch tests/test_* tests/xtest_*
+        env:
+          PYTEST_MD_REPORT: true
+          PYTEST_MD_REPORT_VERBOSE: 1
+          PYTEST_MD_REPORT_ZEROS: empty
+          CI: 1   # HACK: Block `pytest_md_report.plugin.py_is_ci()` to allow `--md_report_zeros=empty`
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
