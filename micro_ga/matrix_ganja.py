@@ -5,70 +5,66 @@ See https://github.com/enkimute/ganja.js/blob/master/ganja.js:
 """
 import numpy as np
 import numpy.typing as npt
-from . import matrix
+from . import matrix, layout
 
 class Cl(matrix.Cl):
     """Clifford algebra generator with `ganja.js` matrix-form conversion support
 
-    This version uses the exact rules from the latest version (as of 2025-2-4),
-    which seems to have issue with signatures of 2 or more "zero" basis-vectors,
-    like Cl(2, 0, 1) or Cl(1, 1, 2) - e.g. multiplication equivalence test fails.
+    This version uses matrix-form rules, that give the same result as `ganja.js`,
+    but for signatures of zero or one "zero" basis-vectors only. For others like
+    Cl(2, 0, 1) or Cl(1, 1, 2), the result is multiplication equivalent unlike
+    the original.
     """
-    _ganja_sign_adjust: npt.NDArray[np.int_]
+    _nz_mult_table: layout.NDMultTableType
 
     def __init__(self, *arg, **kwarg):
         super().__init__(*arg, **kwarg)
 
-        # Mimic results from https://github.com/enkimute/ganja.js/blob/6e97cb4/ganja.js#L751
-        metric_x = np.diag(self._mult_table)[self._mult_table_res_idx]
-        if 0 in self.sig[:1]:   # Bases include `e0`
-            # This acts as `...basis.indexOf(basis[x].replace("0", ""))`
-            inv_sort = np.arange(self._blade_basis_masks.size)
-            inv_sort[self._blade_basis_masks] = inv_sort
-            basis_xd = inv_sort[self._blade_basis_masks & ~np.int_(1)]
-            metric_xd = np.diag(self._mult_table)[basis_xd[self._mult_table_res_idx]]
+        # Create signatures for a non-degenerate algebra (if necessary)
+        if 0 in self.sig:
+            self._nz_mult_table = self._build_mult_table(np.where(self.sig, self.sig, 1))
         else:
-            metric_xd = metric_x
-        grades_x = self.gradeList[self._mult_table_res_idx]
-        odd_grades = (-1)**grades_x.astype(int)
-        negate_mask = (metric_x == -1) | (
-                        (metric_x == 0)
-                        & (grades_x > 1)
-                        & ((metric_xd == 0) | (odd_grades == metric_xd)))
-        # Convert to a sign-adjustment table
-        self._ganja_sign_adjust = np.where(negate_mask, -1, 1).astype(self._mult_table.dtype)
+            self._nz_mult_table = self._mult_table
 
-    def to_matrix_ndarray(self, mvector_arr: npt.NDArray[np.object_], *, col_order: bool=True
+    def to_matrix_ndarray(self, mvector_arr: npt.NDArray[np.object_], *, col_order: bool=False
                           ) -> npt.NDArray:
         """Convert `numpy.ndarray` of multi-vectors to array of equivalent square matrices"""
         #HACK: Check first array element only
         if self != mvector_arr.item(0).layout:
             raise ValueError('Multi-vector of incompatible layout')
         data = np.expand_dims(self.to_ndarray(mvector_arr), axis=-1 if col_order else -2)
-        data = data * self._mult_table.T
+        data = data * self._nz_mult_table
         data = np.take_along_axis(*np.broadcast_arrays(data, self._mult_table_res_idx),
                                   axis=-2 if col_order else -1)
-        return data * self._ganja_sign_adjust
+        # Apply zero-vectors using original signatures, but rolled along other axis
+        zero_mask = np.take_along_axis(self._mult_table == 0, self._mult_table_res_idx,
+                                       axis=-1 if col_order else -2)
+        data[..., zero_mask] = 0
+        return data
 
-    def from_matrix_ndarray(self, mvect_mtx: npt.NDArray, *, col_order: bool=True,
+    def from_matrix_ndarray(self, mvect_mtx: npt.NDArray, *, col_order: bool=False,
                             draft: bool=False) -> npt.NDArray[np.object_]:
         """Convert `numpy.ndarray` of square matrices to array of multi-vectors"""
         if draft:
             # The first column (col_order=False) of each matrix contains the multi-vector
-            # coefficients, but with adjust the signs
-            mvect = mvect_mtx * self._ganja_sign_adjust
-            mvect = mvect[..., *(np.s_[:, 0] if col_order else np.s_[0, :])]
-            mvect = self.from_ndarray(mvect, axis=-1)
+            # coefficients, but with applied signatures
+            mvect = self.from_ndarray(mvect_mtx[..., *(np.s_[0, :] if col_order else np.s_[:, 0])]
+                                      * np.diag(self._nz_mult_table), axis=-1)
         else:
+            # Check expected zeros for zero-versions
+            zero_mask = np.take_along_axis(self._mult_table == 0, self._mult_table_res_idx,
+                                           axis=-1 if col_order else -2)
+            if not np.allclose(mvect_mtx[..., zero_mask], 0):
+                raise ValueError('Matrix do not match degenerate signature')
             # Reorder data back from matrix-form positions
-            data = mvect_mtx * self._ganja_sign_adjust
-            np.put_along_axis(data, *np.broadcast_arrays(self._mult_table_res_idx, data),
+            data = np.empty_like(mvect_mtx)
+            np.put_along_axis(data, *np.broadcast_arrays(self._mult_table_res_idx, mvect_mtx),
                               axis=-2 if col_order else -1)
             # Reapply signatures to get initial values back
-            data = data * self._mult_table.T
+            data = data * self._nz_mult_table
             #pylint: disable=duplicate-code #HACK: The same as in 'matrix.Cl'
             # Take averaged coefficients among non-zero signatures (avoid int to float conversion)
-            data = np.mean(data, axis=-1 if col_order else -2, where=self._mult_table != 0)
+            data = np.mean(data, axis=-1 if col_order else -2, where=~zero_mask)
             mvect = self.from_ndarray(data.astype(mvect_mtx.dtype))
         # Check if the result is consistent (type-conversion is  to support Fraction and Decimal)
         if np.allclose(self.to_matrix_ndarray(mvect, col_order=col_order).astype(complex),
