@@ -42,12 +42,6 @@ def parse_blades(layout: micro_ga.Cl, basis: npt.NDArray[np.str_]
                           np.where(np.strings.startswith(basis, '-'), -1, 1))
     basis = np.strings.lstrip(basis, '-')
     basis[basis == '1'] = ''    # In our list scalar is empty string
-    # Convert base-names to our indices
-    if (np.strings.find(basis, 'e0') >= 0).any():
-        # Translate zero-based blade indices to one-based
-        mask = np.strings.startswith(basis, 'e')
-        basis[mask] = np.strings.translate(basis[mask], table=basis.item(0)
-                                           .maketrans("012345678", "123456789"))
     # Convert basis-strings to indices in our blade-list
     found_mask = basis[..., np.newaxis] == np.asarray(tuple(layout.blades.keys()))
     blade_idx = np.argmax(found_mask, axis=-1)
@@ -56,7 +50,8 @@ def parse_blades(layout: micro_ga.Cl, basis: npt.NDArray[np.str_]
 
 def test_blades(pos_sig, neg_sig, zero_sig):
     """Check if our layout has the same blades in the same order"""
-    layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig)
+    # `ganja.js` uses zero-based indices for degenerate metric
+    layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig, first_index=0 if zero_sig else 1)
     ganja_basis = run_ganja(GANJA_JS_HDR + f"""
         var layout = Algebra({pos_sig}, {neg_sig}, {zero_sig});
         console.log('{RESULT_TOKEN}' + JSON.stringify(layout.describe().basis));
@@ -68,7 +63,7 @@ def test_blades(pos_sig, neg_sig, zero_sig):
 
 def test_mul_table(pos_sig, neg_sig, zero_sig):
     """Check if our layout use the same multiplication table"""
-    layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig)
+    layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig, first_index=0 if zero_sig else 1)
     mul_table = run_ganja(GANJA_JS_HDR + f"""
         var layout = Algebra({pos_sig}, {neg_sig}, {zero_sig});
         console.log('{RESULT_TOKEN}' + JSON.stringify(layout.describe().mulTable));
@@ -88,7 +83,7 @@ def crop_mvector(mv_val: micro_ga.MVector) -> micro_ga.MVector:
 
 def test_operations(operation, pos_sig, neg_sig, zero_sig, mvector_2_gen):
     """Check our results vs. `ganja.js` ones"""
-    layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig)
+    layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig, first_index=0 if zero_sig else 1)
     # Prepare some common JavaScript stuff
     js_script = GANJA_JS_HDR + f"var layout = Algebra({pos_sig}, {neg_sig}, {zero_sig});\n"
     ganja_op = operation.__name__.title()
