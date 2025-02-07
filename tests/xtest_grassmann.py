@@ -5,15 +5,18 @@ See https://github.com/chakravala/Grassmann.jl
 import pytest
 import numpy as np
 from juliacall import Main as jl
-from . import rng, pos_sig, neg_sig, zero_sig, layout, operation, \
+import micro_ga
+from . import rng, pos_sig, neg_sig, zero_sig, operation, \
         mvector_gen, mvector_2_gen  # pylint: disable=W0611
 # pylint: disable=W0621
 
 
-@pytest.fixture(autouse=True)
-def grassmann_layout(layout):
-    """`Grassmann` algebra object auto-use fixture"""
-    jl.seval(f"""using Grassmann; layout, blades... = @basis"{layout.sig}" layout e""")
+@pytest.fixture
+def layout(pos_sig, neg_sig, zero_sig):
+    """`Grassmann` compatible Geometric algebra object fixture"""
+    layout = micro_ga.Cl(pos_sig, neg_sig, zero_sig, name_prefix='v')
+    jl.seval(f'using Grassmann; layout, blades... = basis"{layout.sig}"')
+    return layout
 
 @pytest.fixture
 def grassmann_op(operation):
@@ -23,8 +26,8 @@ def grassmann_op(operation):
 def test_blades(layout):
     """Check if our layout has the same blades in the same order"""
     for name, blade in layout.blades.items():
-        # `0e` is to prevent scalar-only collapse
-        gr_value = jl.seval(f'Multivector({blade} + 0e).v')
+        # `0v` is to prevent scalar-only collapse
+        gr_value = jl.seval(f'Multivector({blade} + 0v).v')
         np.testing.assert_equal(blade.value, gr_value, f'Different blade {name} values')
 
 @pytest.mark.parametrize('operation', ['*'], ids=['mul'])

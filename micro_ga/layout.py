@@ -1,5 +1,7 @@
 """Geometric algebra multi-vector basic implementation"""
 import numbers
+from abc import ABC, abstractmethod
+from typing import Callable
 import numpy as np
 import numpy.typing as npt
 from .multivector import MVector
@@ -24,12 +26,8 @@ NDSigType = npt.NDArray[SigType]
 NDMultTableType = npt.NDArray[MultTableType]
 NDResultIdxType = npt.NDArray[np.int_]
 
-class Cl:
-    """Clifford algebra generator (similar to `clifford.Cl()`)"""
-    #
-    # Algebra signature, similar to `clifford.Layout.sig`
-    #
-    sig: NDSigType
+class ClBase(ABC):
+    """Clifford algebra blade container"""
     # Basis-vector dimensions, similar to `clifford.Layout.dims`
     dims: int
     # Blade-name to multi-vector map
@@ -41,29 +39,13 @@ class Cl:
     # Bit-masks for basis-vectors in each multi-vector blade
     #
     _blade_basis_masks: npt.NDArray[BasisBitmaskType]
-    #
-    # Multiplication tables
-    #
-    _mult_table: NDMultTableType
-    _mult_table_res_idx: NDResultIdxType
 
-    def __init__(self, pos_sig: int|None=None, neg_sig: int=0, zero_sig: int=0, *,
-                 sig: npt.ArrayLike|None=None) -> None:
-        if sig is None:
-            if pos_sig is None:
-                raise ValueError('Either pos_sig or sig must be valid')
-            # Build signature
-            self.sig = np.array([0] * zero_sig + [1] * pos_sig + [-1] * neg_sig,
-                                dtype=SigType)
-        elif pos_sig is not None:
-            raise ValueError('Both pos_sig and sig are valid')
-        else:
-            self.sig = np.asarray(sig, dtype=SigType)
-        self.dims = self.sig.size
+    def __init__(self, dims: int, name_prefix: str='e', first_index: int=1) -> None:
+        self.dims = dims
         #
         # Select bit-masks for all available blades
         #
-        blade_masks = np.arange(1<<self.dims, dtype=BasisBitmaskType)
+        blade_masks = np.arange(1<<dims, dtype=BasisBitmaskType)
         # Sort by grades - number of set-bits, which is the number of basis-vectors
         # like: 000b; 001b, 010b, 100b; 011b, 101b, 110b; 111b
         # Then, by the smallest basis vector: `e14` (mask 9) is before `e23` (mask 6)
@@ -71,20 +53,16 @@ class Cl:
                              + [np.bitwise_count(blade_masks)])
         self._blade_basis_masks = blade_masks[argsort]
         # Update blade names, add object attributes
-        self._add_blades()
-        #
-        # Create multiplication tables
-        #
-        self._build_mult_table()
+        self._add_blades(name_prefix, first_index)
 
-    def _add_blades(self) -> None:
+    def _add_blades(self, name_prefix, first_index) -> None:
         """Assign blade-names as the object attributes"""
         #
         # Select blade names
         #
         blade_names = np.where(
                 self._blade_basis_masks[:, np.newaxis] & 1<<np.arange(self.dims),
-                np.arange(self.dims) + 1, '').astype(object).sum(-1)
+                np.arange(self.dims) + first_index, '').astype(object).sum(-1)
         self.blades = {}
         # Create blade array of `dtype` minimal integer
         blade_val = np.empty(blade_names.size, dtype=SigType)
@@ -94,7 +72,7 @@ class Cl:
             blade_val[idx] = 1
             blade_mvec = self.mvector(blade_val)
             # Add to `blades` map, the scalar is ''
-            name = 'e'+n if n else ''
+            name = name_prefix+n if n else ''
             self.blades[name] = blade_mvec
             # Add it as object attribute, the scalar is 'scalar'
             if name == '':
@@ -103,54 +81,6 @@ class Cl:
             # Extra pseudo-scalar property from the last blade
             if idx + 1 == 1 << self.dims:
                 setattr(self, 'I', blade_mvec)
-
-    def _build_mult_table(self) -> None:
-        """Create multiplication tables"""
-        #
-        # Select component-indices for each element in table
-        #
-        # Bit-masks of non-overlapping blades for each component combination
-        result_masks = self._blade_basis_masks[:, np.newaxis] ^ self._blade_basis_masks
-        # Convert bit-masks to component-indices
-        inv_sort = np.arange(self._blade_basis_masks.size)
-        inv_sort[self._blade_basis_masks] = inv_sort
-        self._mult_table_res_idx = inv_sort[result_masks]
-
-        #
-        # Table to apply basis-vector signatures during component multiplication
-        #
-        # Bit-masks of overlapping blades for each component combination
-        overlap_mask = self._blade_basis_masks[:, np.newaxis] & self._blade_basis_masks
-        # Convert to Boolean-mask where each basis-vector overlap
-        # shape: <left-component>, <right-component>, <basis>
-        overlap_mask = (overlap_mask[..., np.newaxis] & 1<<np.arange(self.dims)).astype(bool)
-        signature_table = np.where(overlap_mask, self.sig, 1).prod(axis=-1, dtype=SigType)
-
-        #
-        # Table to apply anti-commutativity of basis-vector swaps
-        #
-        # Count number of basis-swaps in left-component to match the right-component
-        # Bit-masks of basis-vectors preceding each component's bases:
-        # "1<<(basis_index - 1)" where basis is included, or "0" otherwise
-        pre_basis_mask = self._blade_basis_masks[:, np.newaxis] \
-                & 1<<np.arange(self.dims, dtype=self._blade_basis_masks.dtype)
-        pre_basis_mask = np.where(pre_basis_mask, pre_basis_mask - 1, 0)
-        # Bit-mask of basis-vectors from right-component preceding bases from left-component
-        # (each bit in this mask correspond to a swap operation)
-        # shape: <left-component>, <basis>, <right-component>
-        swap_mask = pre_basis_mask[..., np.newaxis] & self._blade_basis_masks
-        # Count total numbers of swaps, in order left-component to align to right one
-        swap_cnt_table = np.bitwise_count(swap_mask).sum(1, dtype=MultTableType)
-        # Select the sign based on swap parity
-        np.testing.assert_equal(swap_cnt_table & 1,
-                                np.logical_xor.reduce(np.bitwise_count(swap_mask) & 1, axis=1))
-        sign_table = np.where(swap_cnt_table & 1,
-                              MultTableType(-1),    # need odd number of swaps
-                              MultTableType(1))     # need even number of swaps
-        #
-        # Combine sign-swap and signature tables
-        #
-        self._mult_table = sign_table * signature_table
 
     @property
     def gaDims(self) -> int:    # pylint: disable=invalid-name #HACK: match `clifford` naming
@@ -162,9 +92,9 @@ class Cl:
         """Map blade-index to its grade, similar to `clifford.Layout.gradeList`"""
         return np.bitwise_count(self._blade_basis_masks)
 
+    @abstractmethod
     def mvector(self, value: npt.ArrayLike|numbers.Number) -> MVector:
         """Create a multi-vector from this layout"""
-        return MVector(self, value)
 
     def from_ndarray(self, value: npt.ArrayLike, *, axis=-1) -> npt.NDArray[np.object_]:
         """Helper to create array of multi-vectors from array of coefficients"""
@@ -178,6 +108,85 @@ class Cl:
         # Note: `vectorize()` on scalars do not need `otype` dimensions
         otypes = (value0.dtype, value0.shape) if mvector_arr.shape else value0.dtype
         return np.vectorize(lambda mv: mv.value, otypes=[otypes])(mvector_arr)
+
+class Cl(ClBase):
+    """Clifford algebra generator (similar to `clifford.Cl()`)"""
+    #
+    # Algebra signature, similar to `clifford.Layout.sig`
+    #
+    sig: NDSigType
+    #
+    # Multiplication tables
+    #
+    _mult_table: NDMultTableType
+    _mult_table_res_idx: NDResultIdxType
+
+    def __init__(self, pos_sig: int|None=None, neg_sig: int=0, zero_sig: int=0, *,
+                 sig: npt.ArrayLike|None=None, **kwargs) -> None:
+        if sig is None:
+            if pos_sig is None:
+                raise ValueError('Either pos_sig or sig must be valid')
+            # Build signature
+            sig = np.array([0] * zero_sig + [1] * pos_sig + [-1] * neg_sig, dtype=SigType)
+        elif pos_sig is not None:
+            raise ValueError('Both pos_sig and sig are valid')
+        else:
+            sig = np.asarray(sig, dtype=SigType)
+
+        self.sig = sig
+        super().__init__(sig.size, **kwargs)
+
+        #
+        # Create multiplication `Cayley` table (result is non-overlapping blades)
+        #
+        self._mult_table_res_idx = self._build_res_idx_table(np.bitwise_xor)
+        self._mult_table = self._build_sig_table(sig)
+
+    def _build_res_idx_table(self, combine_masks: Callable) -> NDResultIdxType:
+        """Table of result indices after combining individual component pairs"""
+        # Bit-masks of non-overlapping blades for each component combination
+        result_masks = combine_masks(self._blade_basis_masks[:, np.newaxis],
+                                     self._blade_basis_masks[np.newaxis, :])
+        # Convert bit-masks to component-indices
+        inv_sort = np.arange(self._blade_basis_masks.size)
+        inv_sort[self._blade_basis_masks] = inv_sort
+        return inv_sort[result_masks]
+
+    def _build_signature_table(self, sig: npt.ArrayLike) -> NDMultTableType:
+        """Table to apply basis-vector signatures during component multiplication"""
+        # Bit-masks of overlapping blades for each component combination
+        overlap_mask = self._blade_basis_masks[:, np.newaxis] & self._blade_basis_masks
+        # Convert to Boolean-mask where each basis-vector overlap
+        # shape: <left-component>, <right-component>, <basis>
+        overlap_mask = (1<<np.arange(self.dims, dtype=overlap_mask.dtype)
+                        & overlap_mask[..., np.newaxis]).astype(bool)
+        return np.where(overlap_mask, sig, 1).prod(axis=-1, dtype=SigType)
+
+    def _build_sign_swap_table(self) -> NDMultTableType:
+        """Table to apply anti-commutativity of basis-vector swaps"""
+        # Count number of basis-swaps in left-component to match the right-component
+        # Bit-masks of basis-vectors preceding each component's bases:
+        # "1<<(basis_index - 1)" where basis is included, or "0" otherwise
+        pre_basis_mask = self._blade_basis_masks[:, np.newaxis] \
+                & 1<<np.arange(self.dims, dtype=self._blade_basis_masks.dtype)
+        pre_basis_mask = np.where(pre_basis_mask, pre_basis_mask - 1, 0)
+        # Bit-mask of basis-vectors from right-component preceding bases from left-component
+        # (each bit in this mask correspond to a swap operation)
+        # shape: <left-component>, <basis>, <right-component>
+        swap_mask = pre_basis_mask[..., np.newaxis] & self._blade_basis_masks
+        # Count total numbers of swaps, in order left-component to align to right one
+        swap_cnt_table = np.bitwise_count(swap_mask).sum(1, dtype=MultTableType)
+        # Select the sign based on swap parity: `-1` odd number of swaps, `1` even number
+        return np.where(swap_cnt_table & 1, MultTableType(-1), MultTableType(1))
+
+    def _build_sig_table(self, sig: npt.ArrayLike) -> NDMultTableType:
+        """Combined basis anti-commutativity and signature tables"""
+        return self._build_signature_table(sig) * self._build_sign_swap_table()
+
+    #@override  #HACK: Python 3.11 compatibility
+    def mvector(self, value: npt.ArrayLike|numbers.Number) -> MVector:
+        """Create a multi-vector from this layout"""
+        return MVector(self, value)
 
     def __repr__(self) -> str:
         """String representation"""
