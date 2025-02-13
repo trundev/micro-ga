@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Python in Browser with Brython</title>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/brython@3/brython.min.js"></script>
+</head>
+<body onload="brython()">
+    <h1>This is a Brython test</h1>
+    <script type="text/python">
+        from browser import document, console
+        console.log('Console log from python', 1 + 2);
+        def greet(event):
+            document["result"].text = "Hello, World!"
+
+        document["my_button"].bind("click", greet)
+    </script>
+
+    <button id="my_button">Click me</button>
+    <p id="result"></p>
+</body>
+</html>

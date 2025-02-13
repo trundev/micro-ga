@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Python in Browser with Pyodide</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+</head>
+<body>
+    <h1>This is a Pyodide test</h1>
+    <!-- Code based on https://pyodide.org/en/stable/usage/index.html#web-browsers -->
+    <script type="text/javascript">
+        async function main(){
+            let pyodide = await loadPyodide();
+            pyodide.runPython(`
+                import sys
+                import js
+                js.console.log('Console log from Pyodide')
+                js.console.log('  Python version:', sys.version)
+                js.document.body.innerHTML += '<p>Hello from Pyodide!</p>'
+            `);
+        }
+        main();
+    </script>
+</body>
+</html>
