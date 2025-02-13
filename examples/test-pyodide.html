@@ -39,11 +39,26 @@
         check_numpy();
         async function check_micro_ga(){
             let pyodide = await loadPyodide();
-            // Fetch the Python module
-            const response = await fetch('../micro_ga/layout.py');
-            const pythonCode = await response.text();
-             // Load the Python code into Pyodide
-            pyodide.runPython(pythonCode);
+            await pyodide.loadPackage("numpy");
+            // Fetch and load all python files
+            const files = [
+                '../micro_ga/multivector.py',
+                '../micro_ga/layout.py',
+                '../micro_ga/__init__.py',
+            ];
+            for (const file of files) {
+                console.log('fetching ' + file);
+                const response = await fetch(file);
+                const pythonCode = await response.text();
+                console.log('running ' + file);
+                pyodide.runPython(pythonCode);
+            }
+            // Import the module
+            pyodide.runPython(`
+                import numpy as np
+                import micro_ga
+                print(f'{micro_ga.__version__ =}')
+            `);
         }
         check_micro_ga();
     </script>
