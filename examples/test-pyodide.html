@@ -12,10 +12,12 @@
         async function main(){
             let pyodide = await loadPyodide();
             pyodide.runPython(`
-                import sys
+                import sys, os
                 import js
                 js.console.log('Console log from Pyodide')
                 js.console.log('  Python version:', sys.version)
+                js.console.log('  Current working directory:', os.getcwd())
+                js.console.log('  OS environment:', os.environ)
                 js.document.body.innerHTML += '<p>Hello from Pyodide!</p>'
             `);
         }
@@ -35,6 +37,15 @@
             `);
         }
         check_numpy();
+        async function check_micro_ga(){
+            let pyodide = await loadPyodide();
+            // Fetch the Python module
+            const response = await fetch('../micro_ga/layout.py');
+            const pythonCode = await response.text();
+             // Load the Python code into Pyodide
+            pyodide.runPython(pythonCode);
+        }
+        check_micro_ga();
     </script>
 </body>
 </html>

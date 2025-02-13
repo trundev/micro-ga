@@ -18,9 +18,18 @@
         @bind('#my_button', 'click')
         def greet(event):
             document["result"] <= html.P("Hello, World!")
-    </script>
+        @bind('#numpy', 'click')
+        def import_numpy(event):
+            numpy_btn = document["numpy"]
+            numpy_btn.clear()
+            numpy_btn <= html.P("Importing...")
+            import numpy as np
+            numpy_btn.clear()
+            numpy_btn <= html.P(np.__version__)
+        </script>
 
     <button id="my_button">Click me</button>
     <div id="result"></div>
+    <button id="numpy">Click to try numpy</button>
 </body>
 </html>
