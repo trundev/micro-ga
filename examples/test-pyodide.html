@@ -20,6 +20,21 @@
             `);
         }
         main();
+        async function check_numpy(){
+            let pyodide = await loadPyodide();
+            await pyodide.loadPackage("numpy");
+            pyodide.runPython(`
+                import numpy as np
+                import js
+                js.document.body.innerHTML += f'<p>numpy: {np.__version__}</p>'
+                mtx = np.diag(np.arange(3) + 10)
+                js.document.body.innerHTML += f'<p>Matrix: <div>{mtx}</div></p>'
+                eigvals, eigvecs = np.linalg.eig(mtx)
+                js.document.body.innerHTML += f'<p>Eigen values: <div>{eigvals}</div></p>'
+                js.document.body.innerHTML += f'<p>Eigen vectors: <div>{eigvecs}</div></p>'
+            `);
+        }
+        check_numpy();
     </script>
 </body>
 </html>
