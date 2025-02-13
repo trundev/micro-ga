@@ -39,25 +39,17 @@
         check_numpy();
         async function check_micro_ga(){
             let pyodide = await loadPyodide();
-            await pyodide.loadPackage("numpy");
-            // Fetch and load all python files
-            const files = [
-                '../micro_ga/multivector.py',
-                '../micro_ga/layout.py',
-                '../micro_ga/__init__.py',
-            ];
-            for (const file of files) {
-                console.log('fetching ' + file);
-                const response = await fetch(file);
-                const pythonCode = await response.text();
-                console.log('running ' + file);
-                pyodide.runPython(pythonCode);
-            }
-            // Import the module
-            pyodide.runPython(`
-                import numpy as np
-                import micro_ga
-                print(f'{micro_ga.__version__ =}')
+            micropip = await pyodide.loadPackage('micropip');
+
+            // Download a package from GitHub
+            const response = await fetch('../archive/refs/heads/main.zip');
+            const pythonCode = await response.text();
+            pyodide.FS.writeFile('/micro_ga.zip', await response.text());
+            // Install it using micropip
+            await pyodide.runPythonAsync(`
+                import micropip
+                await micropip.install('/micro_ga.zip')
+                print(micropip.__version__)
             `);
         }
         check_micro_ga();
