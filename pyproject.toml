@@ -14,8 +14,13 @@ dependencies = ["numpy"]
 
 [project.optional-dependencies]
 # Development deps, installed through `pip install .[dev]`
-dev = ["pytest", "pytest-cov"]
+dev = ["pytest", "pytest-cov", "numpy-determinant @ https://github.com/trundev/numpy-determinant/archive/main.zip"]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

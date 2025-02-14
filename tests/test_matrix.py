@@ -1,6 +1,9 @@
 """Test multi-vector to/from equivalent matrix conversion"""
+import math
 import numpy as np
+import numpy.typing as npt
 import pytest
+import numpy_determinant as npdet
 import micro_ga.matrix
 from . import rng, pos_sig, neg_sig, zero_sig, \
         rng_mvector, mvector_gen, mvector_2_gen      # pylint: disable=W0611
@@ -115,3 +118,63 @@ def test_mult_inverse(layout, mvector_gen):
         mv_inv = layout.from_matrix(mv_inv)
         assert round(mv_inv * mv_val, 10) == 1, 'Inverse failed'
         assert round(mv_val * mv_inv, 10) == 1, 'Inverse must be commutative'
+
+def nz_grades(mv_val: micro_ga.MVector) -> npt.NDArray[np.bool]:
+    """Boolean for each grade, indicating if it contains any non-zero coefficients"""
+    layout = mv_val.layout
+    res = np.zeros(dtype=bool, shape=(layout.gaDims, layout.dims + 1))
+    np.put_along_axis(res, layout.gradeList[:, np.newaxis], mv_val.value[:, np.newaxis], axis=-1)
+    return res.any(0)
+
+def nested_isqrt(val: int) -> list[int]:
+    """List of all successive "exact" integer square roots (every entry is $v^{-2^i}$)"""
+    sqrts = []
+    while val:
+        res = math.isqrt(val)
+        if res * res != val:
+            return sqrts
+        sqrts.append(res)
+        val = res
+    return sqrts
+
+@pytest.mark.slow('Exact matrix determinant calculation')
+def test_determinant_sqrts(layout, mvector_gen):
+    """Test if multi-vector matrix determinant is some power of an integer
+
+    Conjecture:
+    Determinant of matrix from a multi-vector is its magnitude squared `dims` times, i.e.
+    raised to the power of `2^{dims}`. The magnitude of multi-vector with positive integer
+    coefficients, when squared a specific number of times, results in an integer, like:
+    - scalar/pseudo-scalars - `magnitude` is integer
+    - vectors/pseudo-vectors (also all `versors`) - `magnitude^2` is integer
+    - others - TODO: stick with `magnitude^4` is integer
+
+    Note:
+    This test requires exact determinant value of big matrices, which is a huge value,
+    from which must find the exact square root (repeatedly). Thus, test is limited to
+    python unbounded integers only, no `np.linalg.det()`.
+    """
+    if layout.gaDims >= 32:
+        pytest.skip('Exact matrix determinant calculation may take too much memory')
+    for order in False, True:
+        layout.set_conversion_type(col_order=order)
+        for mv_val in mvector_gen(layout):
+            # Convert multi-vector to matrix, invert and check
+            mv_mtx = layout.to_matrix(mv_val)
+            # Exact integer determinant using unbounded python int-s, no float underflow
+            # Avoid `np.linalg.det()` as it lacks precision for large values
+            try:    # `numpy-determinant` is memory irresponsible for big matrices
+                int_det = npdet.det(mv_mtx.astype(object))
+            except MemoryError as ex:
+                pytest.xfail(str(ex))
+            if int_det == 0:    # Ignore singular matrices
+                continue
+            # Simplification: always expect magnitude squared twice to be an integer
+            num_sqrts = layout.dims - 2
+            mask = nz_grades(mv_val)
+            # Increase expectations
+            num_sqrts += not mask[::2].any()        # Missing even grades
+            num_sqrts += 2 * (not mask[1:].any())   # Scalar-only
+            sqrts = nested_isqrt(int_det)
+            assert len(sqrts) >= num_sqrts, \
+                   f'Determinant of ({mv_val}) is not a {2**num_sqrts}-power of integer'
