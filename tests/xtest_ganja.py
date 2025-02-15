@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 import numpy.typing as npt
 import micro_ga
-import micro_ga.matrix
+import micro_ga.matrix_ganja
 from . import rng, neg_sig, zero_sig, operation, \
         mvector_gen, mvector_2_gen  # pylint: disable=W0611
 # pylint: disable=W0621
@@ -117,11 +117,9 @@ def test_operations(operation, pos_sig, neg_sig, zero_sig, mvector_2_gen):
         our_res = operation(l_val, r_val)
         np.testing.assert_equal(our_res, ref_res)
 
-@pytest.mark.parametrize('zero_sig', [0, pytest.param(1,
-        marks=pytest.mark.xfail(reason="Degenerate metric produce different matrix"))])
 def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
     """Check multi-vector matrix-form conversion"""
-    layout = micro_ga.matrix.Cl(pos_sig, neg_sig, zero_sig, first_index=0 if zero_sig else 1)
+    layout = micro_ga.matrix_ganja.Cl(pos_sig, neg_sig, zero_sig, first_index=0 if zero_sig else 1)
     matrix = run_ganja(GANJA_JS_HDR + f"""
         var layout = Algebra({pos_sig}, {neg_sig}, {zero_sig});
         console.log('{RESULT_TOKEN}' + JSON.stringify(layout.describe().matrix));
@@ -132,6 +130,10 @@ def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
     for our_val in mvector_gen(layout):
         # Convert to matrix-form using `ganja` rules
         ref_mtx = our_val.value[ganja_res_idx] * ganja_sign_table
+        #HACK: Ensure the `ganja` matrix-form is correct
+        if not np.array_equal((our_val * our_val).value[ganja_res_idx] * ganja_sign_table,
+                              ref_mtx @ ref_mtx):
+            pytest.xfail('Reference matrix is NOT multiplication equivalent')
         # Test if it matches our version
         our_mtx = layout.to_matrix(our_val)
         np.testing.assert_equal(our_mtx, ref_mtx, f'Matrix-form mismatch for {our_val}')

@@ -2,15 +2,17 @@
 import numpy as np
 import pytest
 import micro_ga.matrix
+import micro_ga.matrix_ganja
 from . import rng, pos_sig, neg_sig, zero_sig, \
         rng_mvector, mvector_gen, mvector_2_gen      # pylint: disable=W0611
 # pylint: disable=W0621
 
 
-@pytest.fixture
-def layout(pos_sig, neg_sig, zero_sig):
+@pytest.fixture(params=[micro_ga.matrix, micro_ga.matrix_ganja],
+                ids=['matrix', 'matrix_ganja'])
+def layout(pos_sig, neg_sig, zero_sig, request):
     """Geometric algebra with matrix-from conversion support fixture"""
-    return micro_ga.matrix.Cl(pos_sig, neg_sig, zero_sig)
+    return request.param.Cl(pos_sig, neg_sig, zero_sig)
 
 def test_to_from_matrix(layout, mvector_gen):
     """Test multi-vector to matrix conversion"""
