@@ -26,3 +26,8 @@ dev_ext = ["pytest", "pytest-cov",
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+    "extra_tests: marks extended tests, to be run in special configuration",
+]

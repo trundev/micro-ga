@@ -9,6 +9,16 @@ import numpy.typing as npt
 import pytest
 import micro_ga
 
+# Extra tests for `sympy` types (if installed)
+try:
+    from sympy.core import Number as sympy_Number, Basic as sympy_Basic
+    # Better `pytest.param` id
+    sympy_Number.__name__ = 'sympy.' + sympy_Number.__name__
+except ImportError as _:
+    sympy_Number = 'sympy.Number'
+    sympy_Basic = None
+mark_sympy = pytest.mark.skipif(not sympy_Basic, reason='Require sympy')
+
 
 # pylint: disable=W0621
 @pytest.fixture
@@ -44,10 +54,20 @@ def layout(pos_sig, neg_sig, zero_sig):
 # Arithmetic operation / `dtype` related fixtures
 #
 @pytest.fixture(params=[ np.int32, np.float64, np.complex64, object,
-                         fractions.Fraction, decimal.Decimal])
+                         fractions.Fraction, decimal.Decimal,
+                         pytest.param(sympy_Number, marks=mark_sympy)])
 def dtype(request):
     """Multi-vector underlying data-type fixture"""
     return request.param
+
+@pytest.fixture
+def exp_dtype(dtype):
+    """Expected multi-vector `subtype` fixture"""
+    if dtype is object:
+        return int      # Default `micro_ga` type
+    if dtype is sympy_Number:
+        return sympy_Basic
+    return dtype
 
 @pytest.fixture(params=[
         operator.add,

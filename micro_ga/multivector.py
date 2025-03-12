@@ -3,6 +3,14 @@ import numbers
 from typing import Union, Callable, ForwardRef, TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
+
+# Treat `sympy` types as "numbers" (if installed)
+try:
+    import sympy.core.basic
+    SympyTypes = (sympy.core.basic.Basic,)
+except ImportError as _:
+    SympyTypes: tuple[type, ...] = ()
+
 # Avoid circular imports, while type checking works
 if TYPE_CHECKING:
     from .layout import Cl  # pragma: no cover # pylint: disable=wrong-spelling-in-comment
@@ -10,7 +18,8 @@ else:
     Cl = ForwardRef('Cl')
 
 # Multi-vector operation `other` argument type
-OtherArg = Union['MVector', int, complex, numbers.Number]
+NumberTypes = (numbers.Number,) + SympyTypes
+OtherArg = Union['MVector', int, complex, *NumberTypes]
 
 class MVector:
     """Multi-vector representation"""
@@ -19,9 +28,9 @@ class MVector:
 
     def __init__(self, layout: Cl, value: npt.ArrayLike|numbers.Number) -> None:
         # Handle various input type options
-        if isinstance(value, numbers.Number):
+        if isinstance(value, NumberTypes):
             # Ensure blade-type will be up-scaled for integers
-            val = layout.scalar._value_astype(type(value)) * value
+            val = layout.scalar.value * np.asarray(value)
         else:
             val = np.array(value)
             if layout.gaDims != val.size:
@@ -37,6 +46,9 @@ class MVector:
         if subtype == np.object_:
             # Type of underlying object
             subtype = type(self.value.item(0))
+            # Report all `sympy` types as `Basic`
+            if issubclass(subtype, SympyTypes):
+                subtype = SympyTypes[0]
         return subtype
 
     def _value_astype(self, dtype: type) -> npt.NDArray:
@@ -44,7 +56,7 @@ class MVector:
         value = np.asarray(self.value, dtype=dtype)
         if value.dtype.type == np.object_ and dtype != object:
             # Convert individual values to requested non `numpy` type
-            value[...] = np.vectorize(dtype, otypes=[object])(value)
+            value = np.vectorize(dtype, otypes=[object])(value)
         return value
 
     def astype(self, dtype: type) -> 'MVector':
@@ -95,7 +107,7 @@ class MVector:
     def _get_other_value(self, other: OtherArg) -> npt.NDArray:
         """Convert values of an operation argument to match ours"""
         # Check if it is scalar
-        if isinstance(other, numbers.Number):
+        if isinstance(other, NumberTypes):
             # Ensure result `dtype` matches our and `other` types:
             # - type `object` must persist (allows unbounded integers)
             # - when `other` is integer, scalar-blade type will be up-scaled

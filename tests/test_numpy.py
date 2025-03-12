@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 import micro_ga
-from . import pos_sig, layout, dtype    # pylint: disable=W0611
+from . import pos_sig, layout, dtype, exp_dtype # pylint: disable=W0611
 # pylint: disable=W0621
 
 
@@ -25,7 +25,7 @@ def test_ndarray(layout):
         assert isinstance(item, micro_ga.MVector), f'Unexpected ndarray element type: {type(item)}'
         assert issubclass(item.subtype, np.integer), f'Unexpected MVector.subtype: {item.subtype}'
 
-def test_from_to_ndarray(layout, dtype):
+def test_from_to_ndarray(layout, dtype, exp_dtype):
     """Test `Cl.from_ndarray` functionality"""
     vals = np.arange(10 * layout.gaDims, dtype=dtype).reshape(-1, layout.gaDims)
     # Convert all coefficients to requested type (for Fraction and Decimal)
@@ -33,9 +33,8 @@ def test_from_to_ndarray(layout, dtype):
         vals = np.vectorize(dtype, otypes=[micro_ga.MVector])(vals)
     # Create array of multi-vectors, check each subtype
     res = layout.from_ndarray(vals)
-    exp_type = int if dtype is object else dtype
     for item in res.flat:
-        assert item.subtype == exp_type, f'Unexpected MVector.subtype: {item.subtype}'
+        assert item.subtype == exp_dtype, f'Unexpected MVector.subtype: {item.subtype}'
     # Convert back to coefficients, check array and element types
     vals_back = layout.to_ndarray(res)
     np.testing.assert_array_equal(vals_back, vals, 'To-array conversion failed')
@@ -52,11 +51,11 @@ def test_from_to_ndarray(layout, dtype):
     with pytest.raises(ValueError):
         layout.from_ndarray(vals, axis=0)
 
-def test_vectorize(dtype):
+def test_vectorize(dtype, exp_dtype):
     """Test `numpy.vectorize` on a multi-vector method"""
     layout = micro_ga.Cl(2)
     res = np.array(layout.scalar) + np.arange(10)
     # Convert underlying type of all multi-vectors
     res = np.vectorize(micro_ga.MVector.astype, otypes=[micro_ga.MVector])(res, dtype=dtype)
     for item in res.flat:
-        assert issubclass(item.subtype, dtype), f'Unexpected MVector.subtype: {item.subtype}'
+        assert issubclass(item.subtype, exp_dtype), f'Unexpected MVector.subtype: {item.subtype}'

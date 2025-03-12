@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 import numpy as np
 import micro_ga
-from . import pos_sig, neg_sig, zero_sig, layout, dtype # pylint: disable=W0611
+from . import pos_sig, neg_sig, zero_sig, layout, dtype, exp_dtype  # pylint: disable=W0611
 # pylint: disable=W0621
 
 
@@ -62,7 +62,7 @@ def test_comparison(pos_sig, neg_sig):
     # Layout created from a signature
     assert layout == micro_ga.Cl(sig=[1]*pos_sig + [-1]*neg_sig)
 
-def test_repr(dtype):
+def test_repr(dtype, exp_dtype):
     """Test `repr()` and `str()` results"""
     layout = micro_ga.Cl(3)
     # Algebra representation
@@ -82,4 +82,4 @@ def test_repr(dtype):
     assert str(scalar - scalar) == '0'
     assert str(-scalar + pscalar) == f'{py_type(-1)} + {py_type(1)}*e123'
     assert repr(-scalar + pscalar) == \
-           f'MVector({py_type(-1)!r} + {py_type(1)!r}*e123, subtype={exp_type.__name__})'
+           f'MVector({py_type(-1)!r} + {py_type(1)!r}*e123, subtype={exp_dtype.__name__})'
