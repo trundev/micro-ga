@@ -65,8 +65,11 @@ def test_from_vector_matrix(rng, layout):
         layout.from_vector_matrix(np.ones(layout.gaDims), row=0, column=0)
     with pytest.raises(ValueError):
         layout.from_vector_matrix(np.ones(layout.gaDims))
-    # Ensure from vectors with degenerate signatures (last column in row ordered matrix)
+    # Ensure failure from vectors with degenerate signatures (last column in column ordered matrix)
     if 0 in layout.sig:
+        # Workaround: For `ganja` this is valid for row ordered matrices
+        if isinstance(layout, micro_ga.matrix_ganja.Cl):
+            layout.set_conversion_type(False)
         with pytest.raises(ValueError):
             layout.from_vector_matrix(np.zeros(layout.gaDims), column=-1, strict=True)
 
