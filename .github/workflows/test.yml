@@ -75,11 +75,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # We need the latest clifford module version, instead of
-          # v1.4.0 from pypi.org (it only works on python upto 3.11)
-          python -m pip install git+https://github.com/pygae/clifford juliacall pytest-md-report
+          python -m pip install pytest-md-report
           julia -e 'using Pkg; Pkg.add("Grassmann")'
-          python -m pip install .[dev]
+          python -m pip install .[dev_ext]
       - run: pytest --md-report-output=$GITHUB_STEP_SUMMARY --cov=micro_ga --cov-branch tests/test_* tests/xtest_*
         env:
           PYTEST_MD_REPORT: true

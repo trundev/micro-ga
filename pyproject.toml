@@ -15,6 +15,13 @@ dependencies = ["numpy"]
 [project.optional-dependencies]
 # Development deps, installed through `pip install .[dev]`
 dev = ["pytest", "pytest-cov"]
+# Development deps with external libraries, installed through `pip install .[dev_ext]`
+dev_ext = ["pytest", "pytest-cov",
+    # We need the latest clifford module version, instead of
+    # v1.4.0 from pypi.org (it only works on python upto 3.11)
+    "clifford @ git+https://github.com/pygae/clifford",
+    "juliacall",
+    "kingdon"]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]
