@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 import micro_ga
-from . import pos_sig, layout, dtype, exp_dtype # pylint: disable=W0611
+from . import rng, pos_sig, layout, dtype, exp_dtype, mvector_gen   # pylint: disable=W0611
 # pylint: disable=W0621
 
 
@@ -50,6 +50,22 @@ def test_from_to_ndarray(layout, dtype, exp_dtype):
     res = layout.from_ndarray(vals.T, axis=0)
     with pytest.raises(ValueError):
         layout.from_ndarray(vals, axis=0)
+
+def test_from_to_sequence(layout, mvector_gen):
+    """Test `Cl.from_ndarray` and `Cl.to_ndarray` with input of arbitrary sequence"""
+    # Test `from_ndarray()` from tuple of generators
+    num = 3
+    val_seq = tuple(range(10*i, layout.gaDims + 10*i) for i in range(num))
+    res = layout.from_ndarray(val_seq)
+    assert res.shape == (num,), 'Unexpected array shape'
+    for item in res.flat:
+        assert isinstance(item, micro_ga.MVector), f'Unexpected array element type: {type(item)}'
+
+    # Test `to_ndarray()` from tuple
+    mv_seq = tuple(mvector_gen(layout))
+    res = layout.to_ndarray(mv_seq)
+    assert res.shape == (len(mv_seq), layout.gaDims), 'Unexpected array shape'
+    assert res.dtype == mv_seq[0].subtype, 'Unexpected array dtype'
 
 def test_vectorize(dtype, exp_dtype):
     """Test `numpy.vectorize` on a multi-vector method"""

@@ -50,6 +50,16 @@ def test_astype(dtype, exp_dtype):
     for v in scalar.value:
         assert isinstance(v, exp_dtype), 'Individual values must be of requested type'
 
+def test_copy(dtype):
+    """Test multi-vector copy operator"""
+    layout = micro_ga.Cl(3)
+    mv_orig = layout.mvector(10 + np.arange(layout.gaDims)).astype(dtype)
+    mv_copy = mv_orig.copy()
+    assert mv_copy.subtype is mv_orig.subtype, 'The copied subtype must match'
+    assert mv_copy.value.dtype is mv_orig.value.dtype, 'The copied dtype must match'
+    mv_copy.value += 13
+    np.testing.assert_equal(mv_copy.value, mv_orig.value + 13, 'Original value was changed')
+
 def test_operation_dtype(operation, dtype, exp_dtype):
     """Check the internal `numpy` array `dtype` of operation result"""
     layout = micro_ga.Cl(3)

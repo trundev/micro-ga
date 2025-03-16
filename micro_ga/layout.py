@@ -101,8 +101,9 @@ class ClBase(ABC):
         return np.apply_along_axis(lambda v: np.asarray(self.mvector(v)), axis, value)
 
     @staticmethod
-    def to_ndarray(mvector_arr: npt.NDArray[np.object_]) -> npt.NDArray[np.object_]:
+    def to_ndarray(mvector_arr: npt.ArrayLike) -> npt.NDArray[np.object_]:
         """Helper to create array of coefficients from array of multi-vectors"""
+        mvector_arr = np.asarray(mvector_arr)
         # Extract multi-vector coefficients (HACK: use first one to select `dtype`)
         value0 = mvector_arr.item(0).value
         # Note: `vectorize()` on scalars do not need `otype` dimensions

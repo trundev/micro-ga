@@ -119,6 +119,12 @@ class MVector:
             return NotImplemented
         return other.value
 
+    def __copy__(self) -> 'MVector':
+        """Multi-vector shallow copy operation"""
+        return MVector(self.layout, self.value)
+
+    copy = __copy__
+
     def __eq__(self, other) -> bool:
         """Multi-vector comparison"""
         value = self._get_other_value(other)
