@@ -86,8 +86,10 @@ class Cl(layout.Cl):
             raise ValueError('Matrix do not match degenerate metric')
         # Reapply signatures to get initial values back
         data = data * self._mtx_table
-        # Take averaged coefficients among non-zero signatures (avoid int to float conversion)
-        data = np.mean(data, axis=self._expand_axis, where=self._mtx_table != 0)
+        # Take averaged coefficients among non-zero signatures
+        # Workaround `sympy.Symbol`: avoid `np.mean(where=)` because of problems with `identity`
+        data = data / np.count_nonzero(self._mtx_table, axis=self._expand_axis, keepdims=True)
+        data = np.sum(data, axis=self._expand_axis)
         mvect = self.from_ndarray(data.astype(mvect_mtx.dtype))
         # Check if the result is consistent (type-conversion is to support Fraction and Decimal)
         if strict and not np.allclose(self.to_matrix_ndarray(mvect).astype(complex),

@@ -8,8 +8,10 @@ import numpy.typing as npt
 try:
     import sympy.core.basic
     SympyTypes = (sympy.core.basic.Basic,)
+    wrap_sign = sympy.sign  # Need this for string representation
 except ImportError as _:
     SympyTypes: tuple[type, ...] = ()
+    wrap_sign = np.sign
 
 # Avoid circular imports, while type checking works
 if TYPE_CHECKING:
@@ -66,25 +68,28 @@ class MVector:
     def _to_string(self, str_fn: Callable, *, tol: float=0, mult_sym='*') -> str:
         """String representation, strips near-zero blades"""
         vals = self.value
-        nz_mask = np.abs(vals) > tol
+        # Isolate non-pure scalar `sympy` objects (include symbolic components)
+        sym_mask = np.vectorize(lambda v: getattr(v, 'free_symbols', False), otypes=[bool])(vals)
+        # Ignore values that are too small
+        nz_mask = sym_mask.copy()
+        nz_mask[~sym_mask] = np.abs(vals[~sym_mask]) > tol
         if not nz_mask.any():
             return '0'
+        sym_mask = sym_mask[nz_mask]
         vals = vals[nz_mask]
 
-        # Start with strings to join blades (`object` is to allow `+=`)
-        el_strs = np.full(vals.shape, ' + ', dtype=object)
-        el_strs[0] = ''
-        if issubclass(self.subtype, (int, float, np.integer, np.floating)):
-            # Only primitive scalar types are joined using their sign
-            el_strs[1:][vals[1:] < 0] = ' - '
-            vals[1:] = abs(vals[1:])
+        # Make negative non-first elements positive, later use minus sign as a separator
+        neg_mask = np.vectorize(wrap_sign, otypes=[vals.dtype])(vals[1:]) == -1
+        np.negative(vals[1:], out=vals[1:], where=neg_mask)
 
-        # Convert each coefficient to string using `str_fn`
-        el_strs += np.vectorize(str_fn, otypes=[str])(vals)
+        # Convert each coefficient to string using `str_fn`, bracket `sympy` expressions
+        el_strs = np.vectorize(str_fn, otypes=[object])(vals)
+        el_strs[sym_mask] = '(' + el_strs[sym_mask] + ')'
 
-        # Add blade-names
+        # Add blade-names and separators
         blade_strs = np.array(tuple(self.layout.blades.keys()))[nz_mask]
         el_strs += np.where(blade_strs, mult_sym, '') + blade_strs
+        el_strs[:-1] += np.where(neg_mask, ' - ', ' + ')
         return el_strs.sum()
 
     def __str__(self) -> str:

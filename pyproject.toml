@@ -13,6 +13,7 @@ classifiers = [
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
+sympy = ["sympy"]
 # Development deps, installed through `pip install .[dev]`
 dev = ["pytest", "pytest-cov"]
 # Development deps with external libraries, installed through `pip install .[dev_ext]`

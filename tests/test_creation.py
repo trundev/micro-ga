@@ -4,7 +4,8 @@ from typing import Any
 import pytest
 import numpy as np
 import micro_ga
-from . import pos_sig, neg_sig, zero_sig, layout, dtype, exp_dtype  # pylint: disable=W0611
+from . import pos_sig, neg_sig, zero_sig, layout, dtype, exp_dtype, \
+        mark_sympy  # pylint: disable=W0611
 # pylint: disable=W0621
 
 
@@ -83,3 +84,17 @@ def test_repr(dtype, exp_dtype):
     assert str(-scalar + pscalar) == f'{py_type(-1)} + {py_type(1)}*e123'
     assert repr(-scalar + pscalar) == \
            f'MVector({py_type(-1)!r} + {py_type(1)!r}*e123, subtype={exp_dtype.__name__})'
+
+@mark_sympy     # Only if `sympy` is installed
+def test_sympy_symbol(layout):
+    """Test by using `sympy.Symbol` as coefficients"""
+    import sympy    # pylint: disable=import-outside-toplevel
+    coefs = 3 + np.arange(layout.gaDims)
+    scale = 13
+    symbols = np.vectorize(sympy.Symbol)('x' + np.arange(layout.gaDims).astype(str))
+    mv = layout.mvector(coefs * symbols)
+    # Check if string representation doesn't crash
+    print('str:', str(mv), 'repr:', repr(mv))
+    # Substitute all symbols with `scale`
+    mv.value[...] = np.vectorize(sympy.Basic.subs)(mv.value, symbols, scale)
+    assert mv == layout.mvector(coefs) * scale, 'Unexpected symbol substitution result'

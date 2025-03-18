@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import micro_ga.matrix
 import micro_ga.matrix_ganja
-from . import rng, pos_sig, neg_sig, zero_sig, \
+from . import rng, pos_sig, neg_sig, zero_sig, mark_sympy, \
         rng_mvector, mvector_gen, mvector_2_gen      # pylint: disable=W0611
 # pylint: disable=W0621
 
@@ -72,6 +72,23 @@ def test_from_vector_matrix(rng, layout):
             layout.set_conversion_type(False)
         with pytest.raises(ValueError):
             layout.from_vector_matrix(np.zeros(layout.gaDims), column=-1, strict=True)
+
+@mark_sympy     # Only if `sympy` is installed
+def test_to_from_sympy_symbol(layout):
+    """Test by using `sympy.Symbol` as coefficients"""
+    import sympy    # pylint: disable=import-outside-toplevel
+    symbols = np.vectorize(sympy.Symbol)('x' + np.arange(layout.gaDims).astype(str))
+    mv = layout.mvector(symbols * 3)
+    mtx = layout.to_matrix(mv)
+    # Test "from" full matrix of `sympy` expressions (averaged)
+    #TODO: "Strict" mode still fails
+    assert layout.from_matrix(mtx, strict=False) == mv, 'Backward conversion failed'
+    # Test "from" single matrix row/column of `sympy` expressions
+    if isinstance(layout, micro_ga.matrix_ganja.Cl):
+        assert layout.from_vector_matrix(mtx[:, 0], column=0) == mv, \
+                'First-column conversion failed (`ganja` style)'
+    else:
+        assert layout.from_vector_matrix(mtx[0], row=0) == mv, 'First-row conversion failed'
 
 def test_ndarray_to_matrix(layout, mvector_gen):
     """Test `numpy.ndarray` of multi-vectors to matrix conversion"""
