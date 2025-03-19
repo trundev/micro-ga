@@ -34,6 +34,38 @@ except ImportError as _:
     sympy_simplify = lambda v: v
 
 
+#
+# Conversion to sympy expression
+#
+if 'sympy_re' in globals():   # sympy is installed
+    from sympy import Basic as SympyBasic, Expr as SympyExpr, Symbol as SympySymbol, S as SympyS
+
+    def _blade_symbols(layout: layout.Cl) -> npt.NDArray[np.object_]:
+        """Create symbols for all blades (multiplication non-commutative)"""
+        return np.fromiter((SympySymbol(k, commutative=False) if k else SympyS.One
+                            for k in layout.blades.keys()), dtype=SympyExpr)
+
+    def mvector_sympify(mvect: MVector) -> SympyExpr:
+        """Convert multi-vector to a `sympy` expression"""
+        return (mvect.value * _blade_symbols(mvect.layout)).sum()
+
+    def sympy_blade_rules(layout: layout.Cl, mvect: SympyExpr) -> SympyBasic:
+        """Apply layout's blade-product rules on `sympy` expression"""
+        mult_table = layout._mult_table
+        res_idx = layout._mult_table_res_idx
+        symbols = _blade_symbols(layout)
+        # Must expand to make `subs()` working
+        mv_res: SympyBasic = mvect.expand()
+        for l_idx, r_idx in np.ndindex(mult_table.shape):
+            l_sym, r_sym = symbols[[l_idx, r_idx]]
+            sign = mult_table[l_idx, r_idx]
+            res_sym = symbols[res_idx[l_idx, r_idx]]
+            mv_res = mv_res.subs(l_sym * r_sym, sign * res_sym)
+        return mv_res
+
+#
+# Complex expansion
+#
 def _layout_add_basis(layout: layout.Cl, extra_sig: Sequence
                       ) -> tuple[layout.Cl, npt.NDArray[np.bool], MVector]:
     """Create algebra with extra blade(s)"""

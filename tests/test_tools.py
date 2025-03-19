@@ -26,6 +26,20 @@ def mvector_complex_2_gen(mvector_2_gen):
     return iterator
 
 @pytest.mark.parametrize('operation', [operator.add, operator.mul])
+def test_sympify_equivalence(layout, operation, mvector_2_gen):
+    """Check operation results using sympy engine"""
+    # Iterate over some picked values
+    for l_val, r_val in mvector_2_gen(layout):
+        our_res = operation(l_val, r_val)
+        # Run operation on multi-vectors converted to `sympy` expressions
+        sp_l_val = tools.mvector_sympify(l_val)
+        sp_r_val = tools.mvector_sympify(r_val)
+        sp_res = operation(sp_l_val, sp_r_val)
+        # Apply GA rules
+        sp_res = tools.sympy_blade_rules(layout, sp_res)
+        assert sp_res == tools.mvector_sympify(our_res), 'Sympy result does NOT match'
+
+@pytest.mark.parametrize('operation', [operator.add, operator.mul])
 def test_expand_complex_equivalence(layout, operation, mvector_complex_2_gen):
     """Compare expand_vector equivalence before and after some operation"""
     base_basis = 0  #HACK: non-scalars may not make sense
