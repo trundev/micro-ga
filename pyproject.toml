@@ -21,7 +21,9 @@ dev_ext = ["pytest", "pytest-cov",
     # v1.4.0 from pypi.org (it only works on python upto 3.11)
     "clifford @ git+https://github.com/pygae/clifford",
     "juliacall",
-    "kingdon"]
+    # Need latest kingdon version, instead of v1.3.0 from pypi.org
+    # (correct matrix representation for non-VGA algebras)
+    "kingdon @ git+https://github.com/tBuLi/kingdon"]
 
 [build-system]
 requires = ["setuptools>=42", "wheel"]

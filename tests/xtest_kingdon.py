@@ -62,8 +62,5 @@ def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
         # Convert value to `kingdon` ones
         ref_val = kn_layout.multivector(our_val.value)
         ref_mtx = ref_val.asmatrix()
-        #HACK: Ensure the `kingdon` matrix-form is correct
-        if not np.array_equal((ref_val * ref_val).asmatrix(), ref_mtx @ ref_mtx):
-            pytest.xfail('Reference matrix is NOT multiplication equivalent')
         our_mtx = layout.to_matrix(our_val)
         np.testing.assert_equal(our_mtx, ref_mtx)
