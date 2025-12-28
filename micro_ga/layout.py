@@ -105,9 +105,11 @@ class ClBase(ABC):
         """Helper to create array of coefficients from array of multi-vectors"""
         # Extract multi-vector coefficients (HACK: use first one to select `dtype`)
         value0 = mvector_arr.item(0).value
-        # Note: `vectorize()` on scalars do not need `otype` dimensions
-        otypes = (value0.dtype, value0.shape) if mvector_arr.shape else value0.dtype
-        return np.vectorize(lambda mv: mv.value, otypes=[otypes])(mvector_arr)
+        # Workaround for `np.vectorize()` on scalars for numpy<2.3 (before PR #28624):
+        # The `[np.newaxis]`, then `[0]` trick ensures input is non-scalar (for uniform behavior).
+        # NOTE: Drop this trick, when "<2.3" becomes obsolete
+        otypes = (value0.dtype, value0.shape)
+        return np.vectorize(lambda mv: mv.value, otypes=[otypes])(mvector_arr[np.newaxis])[0]
 
 class Cl(ClBase):
     """Clifford algebra generator (similar to `clifford.Cl()`)"""

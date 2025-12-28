@@ -7,19 +7,19 @@ import numpy.typing as npt
 # Treat `sympy` types as "numbers" (if installed)
 try:
     import sympy.core.basic
-    SympyTypes = (sympy.core.basic.Basic,)
+    SYMPY_TYPES = (sympy.core.basic.Basic,)
 except ImportError as _:
-    SympyTypes: tuple[type, ...] = ()
+    SYMPY_TYPES: tuple[type, ...] = ()
 
 # Avoid circular imports, while type checking works
 if TYPE_CHECKING:
     from .layout import Cl  # pragma: no cover # pylint: disable=wrong-spelling-in-comment
 else:
-    Cl = ForwardRef('Cl')
+    Cl = ForwardRef('Cl')   # pylint: disable=invalid-name
 
 # Multi-vector operation `other` argument type
-NumberTypes = (numbers.Number,) + SympyTypes
-OtherArg = Union['MVector', int, complex, *NumberTypes]
+NUMBER_TYPES = (numbers.Number,) + SYMPY_TYPES
+OtherArg = Union['MVector', int, complex, *NUMBER_TYPES]
 
 class MVector:
     """Multi-vector representation"""
@@ -28,7 +28,7 @@ class MVector:
 
     def __init__(self, layout: Cl, value: npt.ArrayLike|numbers.Number) -> None:
         # Handle various input type options
-        if isinstance(value, NumberTypes):
+        if isinstance(value, NUMBER_TYPES):
             # Ensure blade-type will be up-scaled for integers
             val = layout.scalar.value * np.asarray(value)
         else:
@@ -47,8 +47,8 @@ class MVector:
             # Type of underlying object
             subtype = type(self.value.item(0))
             # Report all `sympy` types as `Basic`
-            if issubclass(subtype, SympyTypes):
-                subtype = SympyTypes[0]
+            if issubclass(subtype, SYMPY_TYPES):
+                subtype = SYMPY_TYPES[0]
         return subtype
 
     def _value_astype(self, dtype: type) -> npt.NDArray:
@@ -107,7 +107,7 @@ class MVector:
     def _get_other_value(self, other: OtherArg) -> npt.NDArray:
         """Convert values of an operation argument to match ours"""
         # Check if it is scalar
-        if isinstance(other, NumberTypes):
+        if isinstance(other, NUMBER_TYPES):
             # Ensure result `dtype` matches our and `other` types:
             # - type `object` must persist (allows unbounded integers)
             # - when `other` is integer, scalar-blade type will be up-scaled

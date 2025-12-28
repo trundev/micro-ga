@@ -75,8 +75,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest-md-report
-          julia -e 'using Pkg; Pkg.add("Grassmann")'
+          python -m pip install pytest-md-report juliacall
+          python -c "from juliacall import Main as jl; jl.seval('using Pkg; Pkg.add(\"Grassmann\")')"
           python -m pip install .[dev_ext]
       - run: pytest --md-report-output=$GITHUB_STEP_SUMMARY --cov=micro_ga --cov-branch tests/test_* tests/xtest_*
         env:
