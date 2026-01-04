@@ -28,7 +28,7 @@ def test_blades(layout):
     for name, blade in layout.blades.items():
         # `0v` is to prevent scalar-only collapse
         gr_value = jl.seval(f'Multivector({blade} + 0v).v')
-        np.testing.assert_equal(blade.value, gr_value, f'Different blade {name} values')
+        np.testing.assert_equal(blade.value_sorted, gr_value, f'Different blade {name} values')
 
 @pytest.mark.parametrize('operation', ['*'], ids=['mul'])
 def test_mul_table(layout, operation):
@@ -65,9 +65,9 @@ def test_operations(layout, operation, grassmann_op, mvector_2_gen):
     # Iterate over some picked value combinations
     for our_l_val, our_r_val in mvector_2_gen(layout):
         # Convert values to Julia / `Grassmann` objects
-        ref_l_val = (our_l_val.value * ref_blades).sum()
-        ref_r_val = (our_r_val.value * ref_blades).sum()
+        ref_l_val = (our_l_val.value_sorted * ref_blades).sum()
+        ref_r_val = (our_r_val.value_sorted * ref_blades).sum()
         ref_res = jl.ref_op(ref_l_val,  ref_r_val)
         # Compare to the result from `micro-ga`
         our_res = operation(our_l_val, our_r_val)
-        np.testing.assert_equal(our_res.value, ref_res.v)
+        np.testing.assert_equal(our_res.value_sorted, ref_res.v)

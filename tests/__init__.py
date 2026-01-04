@@ -89,9 +89,11 @@ class MVType(enum.Enum):
     VERSOR = enum.auto()    # A `versor` multi-vector (product of pure-vectors)
     GEN = enum.auto()       # Generic multi-vector (random coefficients)
 
-def rng_mvector(rng, layout: micro_ga.Cl, blade_mask: npt.NDArray[np.bool] | bool):
+def rng_mvector(rng, layout: micro_ga.Cl, blade_mask: npt.NDArray[np.bool]|None=None):
     """Multi-vector of random coefficients in given blades only"""
     blade_vals = np.zeros_like(layout.scalar.value, dtype=int)
+    if blade_mask is None:
+        blade_mask = np.ones_like(blade_vals, dtype=bool)
     # Use prime numbers as multi-vector coefficients
     prime_nums = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
                   31, 37, 41, 43, 47, 53, 59, 61, 67, 71]
@@ -121,7 +123,7 @@ def mvector_gen(request, rng):
                     yield res
             case MVType.GEN:
                 # Single generic multi-vector of random coefficients
-                yield rng_mvector(rng, layout, True)
+                yield rng_mvector(rng, layout)
             case _:
                 assert False, 'Unsupported multi-vector type'
     return iterator

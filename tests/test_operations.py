@@ -40,14 +40,14 @@ def test_astype(dtype, exp_dtype):
     layout = micro_ga.Cl(3)
     # Check type of individual blades before and after type conversion
     for blade in layout.blades.values():
-        assert isinstance(blade.value[0], np.integer), 'Internal blade numpy array must use int'
+        assert isinstance(blade.value.flat[0], np.integer), 'Internal blade numpy array must use int'
         blade = blade.astype(dtype)
         # Note: `dtype('O') == object`
         assert blade.value.dtype == dtype, 'Internal numpy array must use requested dtype'
         assert blade.subtype == exp_dtype, 'Reported subtype must match'
     # Check type of individual values from the scalar-blade
     scalar = layout.scalar.astype(dtype)
-    for v in scalar.value:
+    for v in scalar.value_sorted:
         assert isinstance(v, exp_dtype), 'Individual values must be of requested type'
 
 def test_operation_dtype(operation, dtype, exp_dtype):
@@ -57,7 +57,7 @@ def test_operation_dtype(operation, dtype, exp_dtype):
     exp_dt = np.result_type(dtype)
     assert mv.value.dtype is exp_dt, 'Result dtype must match requested type'
     # Check type of individual values
-    for v in mv.value:
+    for v in mv.value_sorted:
         assert isinstance(v, exp_dtype), 'Individual values of result must be of requested type'
 
 def test_unbounded_int():
@@ -66,7 +66,7 @@ def test_unbounded_int():
     # When converted to `object`, `numpy` falls-back to original python unbounded operation
     scalar = layout.scalar.astype(object)
     mv = scalar + (1<<100)
-    assert (mv.value[0] - (1<<100)) == 1
+    assert (mv.value.item(0) - (1<<100)) == 1
 
     # Default type promotes to `numpy.int64` (64-bit only)
     layout = micro_ga.Cl(2)

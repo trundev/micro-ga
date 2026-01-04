@@ -36,16 +36,16 @@ def test_operations(layout, operation, mvector_2_gen):
     # Iterate over some picked value combinations
     for our_l_val, our_r_val in mvector_2_gen(layout):
         # Convert values to `clifford` ones
-        ref_l_val = clifford.MultiVector(cl_layout, our_l_val.value)
-        ref_r_val = clifford.MultiVector(cl_layout, our_r_val.value)
+        ref_l_val = clifford.MultiVector(cl_layout, our_l_val.value_sorted)
+        ref_r_val = clifford.MultiVector(cl_layout, our_r_val.value_sorted)
         # Test results from `clifford` and `micro-ga`
         ref_res = ref_op(ref_l_val, ref_r_val)
         our_res = operation(our_l_val, our_r_val)
-        np.testing.assert_equal(our_res.value, ref_res.value)
+        np.testing.assert_equal(our_res.value_sorted, ref_res.value)
         # Swap operands to test commutativity
         ref_res = ref_op(ref_r_val, ref_l_val)
         our_res = operation(our_r_val, our_l_val)
-        np.testing.assert_equal(our_res.value, ref_res.value)
+        np.testing.assert_equal(our_res.value_sorted, ref_res.value)
 
 def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
     """Check multi-vector matrix-form conversion"""

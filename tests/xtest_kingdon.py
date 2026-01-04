@@ -42,12 +42,12 @@ def test_operations(layout, operation, mvector_2_gen):
     # Iterate over some picked value combinations
     for our_l_val, our_r_val in mvector_2_gen(layout):
         # Convert values to `kingdon` ones
-        ref_l_val = kn_layout.multivector(our_l_val.value)
-        ref_r_val = kn_layout.multivector(our_r_val.value)
+        ref_l_val = kn_layout.multivector(our_l_val.value_sorted)
+        ref_r_val = kn_layout.multivector(our_r_val.value_sorted)
         # Test results from `kingdon` and `micro-ga`
         ref_res = ref_op(ref_l_val, ref_r_val)
         our_res = operation(our_l_val, our_r_val)
-        np.testing.assert_equal(our_res.value, ref_res.values())
+        np.testing.assert_equal(our_res.value_sorted, ref_res.values())
 
 def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
     """Check multi-vector matrix-form conversion"""

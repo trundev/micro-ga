@@ -99,8 +99,8 @@ def test_operations(operation, pos_sig, neg_sig, zero_sig, mvector_2_gen):
         val_list.append((l_val, r_val))
         # Update JavaScript to do single operation
         js_script += f"""
-            l_val = new layout({l_val.value.tolist()});
-            r_val = new layout({r_val.value.tolist()});
+            l_val = new layout({l_val.value_sorted.tolist()});
+            r_val = new layout({r_val.value_sorted.tolist()});
             res = l_val.{ganja_op}(r_val);
             console.log('{ganja_op}( ' + l_val.toString() + ', ' + r_val.toString() + ' )'
                         + ' -> ' + res.toString());
@@ -113,7 +113,7 @@ def test_operations(operation, pos_sig, neg_sig, zero_sig, mvector_2_gen):
 
     # Iterate over some picked value combinations
     for (l_val, r_val), ref_res in zip(val_list, js_res, strict=True):
-        ref_res = layout.mvector(ref_res)
+        ref_res = layout.from_ndarray(np.asarray(ref_res)).item(0)
         our_res = operation(l_val, r_val)
         np.testing.assert_equal(our_res, ref_res)
 

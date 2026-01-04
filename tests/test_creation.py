@@ -19,7 +19,8 @@ def test_dimensions(pos_sig, neg_sig, zero_sig):
     exp_grades = []
     for g in range(layout.dims + 1):
         exp_grades.extend([g]*math.comb(layout.dims, g))
-    np.testing.assert_equal(layout.gradeList, exp_grades, 'Unexpected gradeList content')
+    np.testing.assert_equal(np.sort(layout.gradeList.flat), exp_grades,
+                            'Unexpected gradeList content')
 
     # Construct layer from incorrect parameters
     with pytest.raises(ValueError):
@@ -44,7 +45,7 @@ def test_blades(layout):
     for k, v in layout.blades.items():
         mv = getattr(layout, k) if k else layout.scalar
         assert mv is v, 'The layout attribute and blade value must be identical'
-        assert sum(v.value) == 1 and np.count_nonzero(v.value) == 1, \
+        assert np.sum(v.value) == 1 and np.count_nonzero(v.value) == 1, \
                'Blade must have a single value set to 1'
 
 def test_comparison(pos_sig, neg_sig):

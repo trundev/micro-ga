@@ -33,7 +33,7 @@ class MVector:
             val = layout.scalar.value * np.asarray(value)
         else:
             val = np.array(value)
-            if layout.gaDims != val.size:
+            if (2,)*layout.dims != val.shape:
                 raise ValueError('Coefficients do not match layout signature')
         self.layout = layout
         self.value = val
@@ -51,6 +51,11 @@ class MVector:
                 subtype = SYMPY_TYPES[0]
         return subtype
 
+    @property
+    def value_sorted(self) -> npt.NDArray:
+        """Flatten `value` and sort in `layout.blades` order"""
+        return self.value[*self.layout._blade_indices]  # pylint: disable=protected-access
+
     def _value_astype(self, dtype: type) -> npt.NDArray:
         """Convert `value` to a different data type, original array if type matches"""
         value = np.asarray(self.value, dtype=dtype)
@@ -65,7 +70,7 @@ class MVector:
 
     def _to_string(self, str_fn: Callable, *, tol: float=0, mult_sym='*') -> str:
         """String representation, strips near-zero blades"""
-        vals = self.value
+        vals = self.value_sorted
         nz_mask = np.abs(vals) > tol
         if not nz_mask.any():
             return '0'
