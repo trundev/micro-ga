@@ -56,7 +56,7 @@ def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
     # Iterate over some picked values
     for our_val in mvector_gen(layout):
         # Convert value to `clifford` ones
-        ref_val = clifford.MultiVector(cl_layout, our_val.value)
+        ref_val = clifford.MultiVector(cl_layout, our_val.value_sorted)
         # Test "left multiplication", matches column-order form
         ref_left_mtx = cl_layout.get_left_gmt_matrix(ref_val)
         layout.set_conversion_type(col_order=True)

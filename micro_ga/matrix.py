@@ -45,12 +45,13 @@ class Cl(layout.Cl):
     @property
     def _mtx_table(self) -> layout.NDMultTableType:
         """Multiplication table to be used by to/from matrix conversion"""
-        return self._mult_table
+        return self._mult_table[*self._blade_indices][..., *self._blade_indices]
 
     @property
     def _mtx_table_res_idx(self) -> layout.NDResultIdxType:
         """Multiplication result index table to be used by to/from matrix conversion"""
-        return self._mult_table_res_idx
+        res_idx = self._value_indices[*self._mult_table_res_idx]
+        return res_idx[*self._blade_indices][..., *self._blade_indices]
 
     def to_matrix(self, mvector: MVector, **kw_args) -> npt.NDArray:
         """Convert multi-vector to the equivalent square matrix"""

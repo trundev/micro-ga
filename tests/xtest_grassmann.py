@@ -45,11 +45,16 @@ def test_mul_table(layout, operation):
     ref_blades = np.fromiter(ref_blades, dtype=object)
     # Convert basis-objects to indices in list of algebra blades
     gr_res_idx = np.argmax(cayley_bases[..., np.newaxis] == ref_blades, axis=-1)
-    np.testing.assert_equal(layout._mult_table_res_idx, gr_res_idx.T,   # pylint: disable=protected-access
+    # Reshape/convert bases to our nd-value style
+    bl_idx, vl_idx = layout._blade_indices, layout._value_indices   # pylint: disable=protected-access
+    gr_res_idx = bl_idx[:, gr_res_idx.T[vl_idx][..., vl_idx]]
+    np.testing.assert_equal(layout._mult_table_res_idx, gr_res_idx, # pylint: disable=protected-access
                             'Grassman multiplication table mismatch')
     # Extract signatures only (array includes `Submanifold` and `Single` objects)
     gr_mult_table = np.vectorize(lambda v: getattr(v, 'v', 1))(cayley)
-    np.testing.assert_equal(layout._mult_table, gr_mult_table.T,    # pylint: disable=protected-access
+    # Reshape table to our nd-value style
+    gr_mult_table = gr_mult_table.T[vl_idx][..., vl_idx]
+    np.testing.assert_equal(layout._mult_table, gr_mult_table,  # pylint: disable=protected-access
                             'Grassman multiplication signature table mismatch')
 
 def test_operations(layout, operation, grassmann_op, mvector_2_gen):

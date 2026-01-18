@@ -29,11 +29,12 @@ class Cl(matrix.Cl):
             # Degenerate signature: build the mixed order table
             # Start with non-degenerate signature table, ordered as selected by `col_order`
             mult_table = self._build_sig_table(np.where(self.sig, self.sig, 1))
+            mult_table = mult_table[*self._blade_indices][..., *self._blade_indices]
 
             # Apply zero coefficients, reordered in a way, so as at the end are in `not col_order`
-            zero_mask = np.take_along_axis(super()._mtx_table == 0, self._mult_table_res_idx,
+            zero_mask = np.take_along_axis(super()._mtx_table == 0, self._mtx_table_res_idx,
                                            axis=self._expand_axis)
-            np.put_along_axis(zero_mask, self._mult_table_res_idx, zero_mask,
+            np.put_along_axis(zero_mask, self._mtx_table_res_idx, zero_mask,
                               axis=self._res_idx_axis)
             mult_table[zero_mask] = 0
         else:

@@ -38,7 +38,7 @@ def test_from_vector_matrix(rng, layout):
     for order in False, True:
         layout.set_conversion_type(col_order=order)
         # Create multi-vector equivalent matrix, iterate over all of its rows/columns
-        mv_val = rng_mvector(rng, layout, True)
+        mv_val = rng_mvector(rng, layout)
         mv_mtx = layout.to_matrix(mv_val)
         for idx in range(mv_mtx.shape[0]):
             # Row conversion

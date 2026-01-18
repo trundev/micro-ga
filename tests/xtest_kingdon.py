@@ -60,7 +60,7 @@ def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
     # Iterate over some picked values
     for our_val in mvector_gen(layout):
         # Convert value to `kingdon` ones
-        ref_val = kn_layout.multivector(our_val.value)
+        ref_val = kn_layout.multivector(our_val.value_sorted)
         ref_mtx = ref_val.asmatrix()
         #HACK: Ensure the `kingdon` matrix-form is correct
         if not np.array_equal((ref_val * ref_val).asmatrix(), ref_mtx @ ref_mtx):

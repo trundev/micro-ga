@@ -69,10 +69,15 @@ def test_mul_table(pos_sig, neg_sig, zero_sig):
         var layout = Algebra({pos_sig}, {neg_sig}, {zero_sig});
         console.log('{RESULT_TOKEN}' + JSON.stringify(layout.describe().mulTable));
         """)
-    # Convert blade-naming to our style
+    # Convert blade-naming to our style, reshape to nd-value
     ganja_res_idx, ganja_sign_table = parse_blades(layout, np.array(mul_table))
+    bl_idx, vl_idx = layout._blade_indices, layout._value_indices   # pylint: disable=protected-access
+    ganja_res_idx = ganja_res_idx[vl_idx][..., vl_idx]
+    # Force index to 255 where blade is missing, e.g. '0'
+    ganja_res_idx = np.where(ganja_res_idx < 0, 255, bl_idx[:, ganja_res_idx])
+    ganja_sign_table = ganja_sign_table[vl_idx][..., vl_idx]
     our_sign_table = layout._mult_table     # pylint: disable=protected-access
-    our_res_idx = np.where(our_sign_table != 0, layout._mult_table_res_idx, -1) # pylint: disable=protected-access
+    our_res_idx = np.where(our_sign_table != 0, layout._mult_table_res_idx, 255) # pylint: disable=protected-access
     np.testing.assert_equal(our_res_idx, ganja_res_idx, 'ganja Algebra.mulTable mismatch')
     np.testing.assert_equal(our_sign_table, ganja_sign_table,
                             'ganja Algebra.mulTable signature mismatch')
@@ -129,9 +134,9 @@ def test_matrix_form(pos_sig, neg_sig, zero_sig, mvector_gen):
     # Iterate over some picked values
     for our_val in mvector_gen(layout):
         # Convert to matrix-form using `ganja` rules
-        ref_mtx = our_val.value[ganja_res_idx] * ganja_sign_table
+        ref_mtx = our_val.value_sorted[ganja_res_idx] * ganja_sign_table
         #HACK: Ensure the `ganja` matrix-form is correct
-        if not np.array_equal((our_val * our_val).value[ganja_res_idx] * ganja_sign_table,
+        if not np.array_equal((our_val * our_val).value_sorted[ganja_res_idx] * ganja_sign_table,
                               ref_mtx @ ref_mtx):
             pytest.xfail('Reference matrix is NOT multiplication equivalent')
         # Test if it matches our version
